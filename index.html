@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatConnect Pro - Advanced Communications</title>
+    <title>PR Message - Advanced Communications</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Appwrite SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
 </head>
 <body>
     <div id="app" class="app-container">
@@ -13,26 +15,30 @@
             <div class="container">
                 <div class="home-content">
                     <div class="hero-section">
-                        <h1 class="app-title">ChatConnect Pro</h1>
-                        <p class="app-subtitle">Advanced video chat, voice calls, screen sharing, and file transfer</p>
+                        <h1 class="app-title">🛡️ PR Message</h1>
+                        <p class="app-subtitle">Bulletproof video chat, voice calls, screen sharing, and file transfer with Appwrite backend</p>
                     </div>
                     
                     <div class="action-buttons">
                         <button id="createInviteBtn" class="btn btn--primary btn--lg btn--full-width">
-                            <span>Create Room</span>
+                            <span>🔒 Create Bulletproof Room</span>
                         </button>
                         <button id="joinWithCodeBtn" class="btn btn--outline btn--lg btn--full-width">
-                            <span>Join with Code</span>
+                            <span>🛡️ Join with Code</span>
                         </button>
                     </div>
                     
-                    <!-- Debug Panel -->
+                    <!-- Enhanced Debug Panel -->
                     <div id="debugPanel" class="debug-panel hidden">
-                        <h4>Debug Info</h4>
+                        <h4>🔧 Bulletproof Debug Console</h4>
                         <div id="debugContent"></div>
-                        <button id="toggleDebugBtn" class="btn btn--sm btn--secondary">Hide Debug</button>
+                        <div class="debug-actions">
+                            <button id="clearRoomsBtn" class="btn btn--sm btn--danger">Clear All Rooms</button>
+                            <button id="testConnectionBtn" class="btn btn--sm btn--info">Test Appwrite</button>
+                            <button id="toggleDebugBtn" class="btn btn--sm btn--secondary">Hide Debug</button>
+                        </div>
                     </div>
-                    <button id="showDebugBtn" class="btn btn--sm btn--outline debug-toggle">Show Debug</button>
+                    <button id="showDebugBtn" class="btn btn--sm btn--outline debug-toggle">🔧 Debug Console</button>
                 </div>
             </div>
         </div>
@@ -50,19 +56,26 @@
                         <div class="card__body">
                             <div id="codeGenerating" class="loading-state">
                                 <div class="spinner"></div>
-                                <p>Generating secure room code...</p>
+                                <p>Generating bulletproof code...</p>
                             </div>
                             
                             <div id="codeGenerated" class="code-display hidden">
                                 <h3>Your Room Code</h3>
                                 <div class="code-container">
-                                    <span id="inviteCode" class="invite-code"></span>
-                                    <button id="copyCodeBtn" class="btn btn--secondary btn--sm copy-btn">Copy</button>
+                                    <div id="inviteCode" class="invite-code"></div>
+                                    <button id="copyCodeBtn" class="btn btn--outline btn--sm">
+                                        <span>📋 Copy</span>
+                                    </button>
                                 </div>
-                                <p class="code-instructions">Share this code to start chatting. Waiting for connection...</p>
-                                <div class="waiting-indicator">
+                                <div class="code-info">
+                                    <p>Share this code with someone to start chatting</p>
+                                    <div class="storage-status">
+                                        <span id="storageStatus" class="status-indicator">🟢 Stored in Appwrite</span>
+                                    </div>
+                                </div>
+                                <div id="waitingForJoiner" class="waiting-state">
                                     <div class="pulse-dot"></div>
-                                    <span>Waiting for someone to join...</span>
+                                    <p>Waiting for someone to join...</p>
                                 </div>
                             </div>
                         </div>
@@ -84,20 +97,34 @@
                         <div class="card__body">
                             <form id="joinForm" class="join-form">
                                 <div class="form-group">
-                                    <label class="form-label" for="codeInput">Enter Room Code</label>
-                                    <input 
-                                        type="text" 
-                                        id="codeInput" 
-                                        class="form-control code-input" 
-                                        placeholder="Enter 6-character code"
-                                        maxlength="6"
-                                        autocomplete="off">
-                                    <div class="validation-feedback">
-                                        <div id="validationSteps" class="validation-steps"></div>
+                                    <label for="codeInput" class="form-label">Enter Room Code</label>
+                                    <input type="text" 
+                                           id="codeInput" 
+                                           class="form-input" 
+                                           placeholder="XXXXXX" 
+                                           maxlength="6" 
+                                           autocomplete="off">
+                                </div>
+                                
+                                <!-- Real-time validation feedback -->
+                                <div id="validationFeedback" class="validation-feedback">
+                                    <div class="validation-item">
+                                        <span id="lengthCheck" class="validation-icon">⚪</span>
+                                        <span>Code must be 6 characters</span>
+                                    </div>
+                                    <div class="validation-item">
+                                        <span id="formatCheck" class="validation-icon">⚪</span>
+                                        <span>Only letters and numbers allowed</span>
+                                    </div>
+                                    <div class="validation-item">
+                                        <span id="existsCheck" class="validation-icon">⚪</span>
+                                        <span>Room must be available</span>
                                     </div>
                                 </div>
+                                
                                 <div id="joinError" class="error-message hidden"></div>
-                                <button type="submit" id="joinBtn" class="btn btn--primary btn--full-width">
+                                
+                                <button type="submit" id="joinBtn" class="btn btn--primary btn--lg btn--full-width">
                                     <span id="joinBtnText">Join Room</span>
                                     <div id="joinSpinner" class="btn-spinner hidden"></div>
                                 </button>
@@ -110,215 +137,122 @@
 
         <!-- Chat Screen -->
         <div id="chatScreen" class="screen">
-            <div class="container">
-                <div class="chat-container">
-                    <!-- Chat Header -->
-                    <div class="chat-header">
-                        <div class="chat-info">
-                            <h3 id="chatTitle">Private Room</h3>
-                            <span id="connectionStatus" class="status status--success">Connected</span>
-                        </div>
-                        <div class="chat-controls">
-                            <button id="settingsBtn" class="btn btn--outline btn--sm">Settings</button>
-                            <button id="leaveChatBtn" class="btn btn--outline btn--sm">Leave</button>
+            <div class="chat-layout">
+                <!-- Chat Header -->
+                <div class="chat-header">
+                    <div class="chat-info">
+                        <h3 id="chatTitle">PR Message</h3>
+                        <div id="connectionStatus" class="connection-status">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Connected</span>
                         </div>
                     </div>
-
-                    <!-- Media Controls Bar -->
+                    
+                    <!-- Media Controls -->
                     <div class="media-controls">
-                        <div class="media-buttons">
-                            <button id="videoCallBtn" class="media-btn" title="Video Call">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M23 7l-7 5 7 5V7z"></path>
-                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                                </svg>
-                                <span>Video</span>
-                            </button>
-                            <button id="voiceCallBtn" class="media-btn" title="Voice Call">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                </svg>
-                                <span>Voice</span>
-                            </button>
-                            <button id="screenShareBtn" class="media-btn" title="Screen Share">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                                </svg>
-                                <span>Screen</span>
-                            </button>
-                            <button id="voiceRecordBtn" class="media-btn" title="Voice Message">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                                </svg>
-                                <span>Record</span>
-                            </button>
-                            <button id="fileShareBtn" class="media-btn" title="Share Files">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                <span>Files</span>
-                            </button>
-                        </div>
-                        <div class="connection-quality">
-                            <div id="connectionQuality" class="quality-indicator">
-                                <span class="quality-dots">
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
-                                    <span class="dot"></span>
-                                </span>
-                                <span id="qualityText">Good</span>
-                            </div>
-                        </div>
+                        <button id="videoCallBtn" class="media-btn" title="Video Call">
+                            <span class="btn-icon">📹</span>
+                        </button>
+                        <button id="voiceCallBtn" class="media-btn" title="Voice Call">
+                            <span class="btn-icon">🎙️</span>
+                        </button>
+                        <button id="screenShareBtn" class="media-btn" title="Screen Share">
+                            <span class="btn-icon">🖥️</span>
+                        </button>
+                        <button id="leaveChatBtn" class="btn btn--outline btn--sm">
+                            <span>Leave</span>
+                        </button>
                     </div>
-                    
-                    <!-- Video Call Interface -->
-                    <div id="videoInterface" class="video-interface hidden">
-                        <div class="video-container">
-                            <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
-                            <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+                </div>
+
+                <!-- Video Call Container -->
+                <div id="videoContainer" class="video-container hidden">
+                    <video id="localVideo" class="local-video" autoplay muted playsinline></video>
+                    <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+                    <div class="video-controls">
+                        <button id="toggleCameraBtn" class="video-control-btn">📹</button>
+                        <button id="toggleMicBtn" class="video-control-btn">🎙️</button>
+                        <button id="endCallBtn" class="video-control-btn end-call">📞</button>
+                    </div>
+                </div>
+
+                <!-- Screen Share Container -->
+                <div id="screenShareContainer" class="screen-share-container hidden">
+                    <video id="screenVideo" class="screen-video" autoplay playsinline></video>
+                    <button id="stopScreenShareBtn" class="btn btn--danger">Stop Sharing</button>
+                </div>
+
+                <!-- Messages Area -->
+                <div class="chat-body">
+                    <div id="messagesList" class="messages-list"></div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="chat-input">
+                    <!-- Voice Recording -->
+                    <div id="voiceRecorder" class="voice-recorder hidden">
+                        <div class="recording-indicator">
+                            <div class="recording-dot"></div>
+                            <span id="recordingTime">00:00</span>
                         </div>
-                        <div class="video-controls">
-                            <button id="toggleCameraBtn" class="control-btn active">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M23 7l-7 5 7 5V7z"></path>
-                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                                </svg>
-                            </button>
-                            <button id="toggleMicBtn" class="control-btn active">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                                    <line x1="12" y1="19" x2="12" y2="23"></line>
-                                    <line x1="8" y1="23" x2="16" y2="23"></line>
-                                </svg>
-                            </button>
-                            <button id="endCallBtn" class="control-btn end-call">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                                </svg>
-                            </button>
+                        <div class="recording-controls">
+                            <button id="stopRecordingBtn" class="btn btn--danger btn--sm">Stop</button>
+                            <button id="cancelRecordingBtn" class="btn btn--outline btn--sm">Cancel</button>
                         </div>
                     </div>
 
-                    <!-- Screen Share Interface -->
-                    <div id="screenShareInterface" class="screen-share-interface hidden">
-                        <div class="screen-container">
-                            <video id="screenVideo" class="screen-video" autoplay playsinline></video>
-                        </div>
-                        <div class="screen-controls">
-                            <button id="stopScreenShareBtn" class="btn btn--outline">Stop Sharing</button>
-                        </div>
-                    </div>
-
-                    <!-- Messages Container -->
-                    <div id="messagesContainer" class="messages-container">
-                        <div id="messagesList" class="messages-list">
-                            <!-- Messages will be dynamically added here -->
-                        </div>
-                    </div>
-                    
                     <!-- File Drop Zone -->
                     <div id="fileDropZone" class="file-drop-zone hidden">
                         <div class="drop-content">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                            </svg>
-                            <p>Drop files here to share</p>
+                            <span class="drop-icon">📁</span>
+                            <span class="drop-text">Drop files here to share</span>
                         </div>
                     </div>
 
-                    <!-- Voice Recording Interface -->
-                    <div id="voiceRecordInterface" class="voice-record-interface hidden">
-                        <div class="recording-display">
-                            <div class="recording-visualizer">
-                                <div class="wave-bars">
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                    <span class="bar"></span>
-                                </div>
-                            </div>
-                            <div class="recording-info">
-                                <span id="recordingTimer">0:00</span>
-                                <p>Recording voice message...</p>
-                            </div>
-                            <div class="recording-controls">
-                                <button id="stopRecordingBtn" class="btn btn--primary">Stop & Send</button>
-                                <button id="cancelRecordingBtn" class="btn btn--outline">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Message Input -->
-                    <div class="message-input-container">
-                        <form id="messageForm" class="message-form">
-                            <input 
-                                type="text" 
-                                id="messageInput" 
-                                class="form-control message-input" 
-                                placeholder="Type your message..."
-                                autocomplete="off">
-                            <input type="file" id="fileInput" class="hidden" multiple>
-                            <button type="button" id="attachBtn" class="btn btn--outline attach-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
-                                </svg>
+                    <!-- Message Form -->
+                    <form id="messageForm" class="message-form">
+                        <div class="input-container">
+                            <button type="button" id="voiceMessageBtn" class="input-btn" title="Voice Message">
+                                <span>🎤</span>
                             </button>
-                            <button type="submit" id="sendBtn" class="btn btn--primary">Send</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+                            <button type="button" id="fileShareBtn" class="input-btn" title="Share File">
+                                <span>📎</span>
+                            </button>
+                            <input type="text" 
+                                   id="messageInput" 
+                                   class="message-input" 
+                                   placeholder="Type a message..." 
+                                   autocomplete="off">
+                            <button type="submit" id="sendBtn" class="send-btn" title="Send Message">
+                                <span>🚀</span>
+                            </button>
+                        </div>
+                    </form>
 
-        <!-- Settings Modal -->
-        <div id="settingsModal" class="modal hidden">
-            <div class="modal-backdrop"></div>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>Settings</h3>
-                    <button id="closeSettingsBtn" class="btn btn--outline btn--sm">×</button>
+                    <!-- Hidden file input -->
+                    <input type="file" id="fileInput" class="hidden" multiple>
                 </div>
-                <div class="modal-body">
-                    <div class="settings-section">
-                        <h4>Audio/Video Devices</h4>
-                        <div class="form-group">
-                            <label class="form-label">Camera</label>
-                            <select id="cameraSelect" class="form-control"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Microphone</label>
-                            <select id="microphoneSelect" class="form-control"></select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Speakers</label>
-                            <select id="speakerSelect" class="form-control"></select>
-                        </div>
+
+                <!-- File Transfer Progress -->
+                <div id="fileTransferProgress" class="file-progress hidden">
+                    <div class="progress-header">
+                        <span class="progress-title">Transferring files...</span>
+                        <button id="cancelTransferBtn" class="btn btn--sm btn--outline">Cancel</button>
                     </div>
-                    <div class="settings-section">
-                        <h4>Privacy</h4>
-                        <div class="privacy-info">
-                            <p>🔒 All communications are peer-to-peer encrypted</p>
-                            <p>📹 Camera and microphone access required for video/voice calls</p>
-                            <p>🖥️ Screen sharing requires additional permission</p>
-                        </div>
+                    <div class="progress-bar">
+                        <div id="transferProgressBar" class="progress-fill"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="transferFileName">filename.pdf</span>
+                        <span id="transferSpeed">1.2 MB/s</span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Load Configuration and App -->
+    <script src="appwrite-config.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
