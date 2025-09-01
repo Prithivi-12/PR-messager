@@ -2,7 +2,7 @@
 const APPWRITE_CONFIG = {
     endpoint: 'https://nyc.cloud.appwrite.io/v1', // Replace with your Appwrite endpoint
     projectId: '68b56cbd00346ee519c7', // Replace with your actual project ID
-    databaseId: '68b54c1e0005fcd199a6', // Replace with your actual database ID
+    databaseId: '68b56db3003e6c5b9b78', // Replace with your actual database ID
     collections: {
         chatRooms: 'chat_rooms',
         messages: 'messages',
