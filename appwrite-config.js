@@ -1,8 +1,8 @@
 // Appwrite Configuration for PR Message
 const APPWRITE_CONFIG = {
-    endpoint: 'https://cloud.appwrite.io/v1', // Replace with your Appwrite endpoint
-    projectId: 'YOUR_PROJECT_ID', // Replace with your actual project ID
-    databaseId: 'YOUR_DATABASE_ID', // Replace with your actual database ID
+    endpoint: 'https://nyc.cloud.appwrite.io/v1', // Replace with your Appwrite endpoint
+    projectId: '68b548390017155fc602', // Replace with your actual project ID
+    databaseId: '68b54c1e0005fcd199a6', // Replace with your actual database ID
     collections: {
         chatRooms: 'chat_rooms',
         messages: 'messages',
