@@ -3,43 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PR Message - Advanced Communications</title>
+    <title>PR Message - Secure Video Chat</title>
+    <meta name="description" content="Bulletproof video chat, voice calls, screen sharing, and file transfer with Appwrite backend">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="style.css">
-    <!-- Appwrite SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
 </head>
 <body>
-    <div id="app" class="app-container">
+    <div class="app-container">
         <!-- Home Screen -->
         <div id="homeScreen" class="screen active">
             <div class="container">
                 <div class="home-content">
                     <div class="hero-section">
-                        <h1 class="app-title">🛡️ PR Message</h1>
+                        <h1 class="app-title">PR Message</h1>
                         <p class="app-subtitle">Bulletproof video chat, voice calls, screen sharing, and file transfer with Appwrite backend</p>
                     </div>
                     
                     <div class="action-buttons">
                         <button id="createInviteBtn" class="btn btn--primary btn--lg btn--full-width">
-                            <span>🔒 Create Bulletproof Room</span>
+                            <span>🔐</span>
+                            Create Secure Room
                         </button>
                         <button id="joinWithCodeBtn" class="btn btn--outline btn--lg btn--full-width">
-                            <span>🛡️ Join with Code</span>
+                            <span>🚪</span>
+                            Join with Code
                         </button>
                     </div>
-                    
-                    <!-- Enhanced Debug Panel -->
-                    <div id="debugPanel" class="debug-panel hidden">
-                        <h4>🔧 Bulletproof Debug Console</h4>
-                        <div id="debugContent"></div>
-                        <div class="debug-actions">
-                            <button id="clearRoomsBtn" class="btn btn--sm btn--danger">Clear All Rooms</button>
-                            <button id="testConnectionBtn" class="btn btn--sm btn--info">Test Appwrite</button>
-                            <button id="toggleDebugBtn" class="btn btn--sm btn--secondary">Hide Debug</button>
-                        </div>
-                    </div>
-                    <button id="showDebugBtn" class="btn btn--sm btn--outline debug-toggle">🔧 Debug Console</button>
                 </div>
+            </div>
+            
+            <!-- Debug Panel Toggle -->
+            <div class="debug-toggle">
+                <button id="showDebugBtn" class="btn btn--sm btn--secondary">
+                    Show Debug
+                </button>
             </div>
         </div>
 
@@ -48,34 +45,39 @@
             <div class="container">
                 <div class="invite-content">
                     <div class="back-header">
-                        <button id="backFromCreateBtn" class="btn btn--outline btn--sm">← Back</button>
-                        <h2>Create Room</h2>
+                        <button id="backFromCreateBtn" class="btn btn--outline">← Back</button>
+                        <h2>Create Secure Room</h2>
                     </div>
                     
-                    <div class="invite-card card">
+                    <div class="card invite-card">
                         <div class="card__body">
+                            <!-- Generating State -->
                             <div id="codeGenerating" class="loading-state">
                                 <div class="spinner"></div>
-                                <p>Generating bulletproof code...</p>
+                                <h3>Generating bulletproof code...</h3>
+                                <p class="code-info">Creating secure connection...</p>
                             </div>
                             
+                            <!-- Generated State -->
                             <div id="codeGenerated" class="code-display hidden">
-                                <h3>Your Room Code</h3>
+                                <h3>Share this code with someone to start chatting</h3>
+                                
                                 <div class="code-container">
-                                    <div id="inviteCode" class="invite-code"></div>
-                                    <button id="copyCodeBtn" class="btn btn--outline btn--sm">
-                                        <span>📋 Copy</span>
+                                    <div id="inviteCode" class="invite-code">XXXXXX</div>
+                                    <button id="copyCodeBtn" class="btn btn--primary">
+                                        📋 Copy
                                     </button>
                                 </div>
-                                <div class="code-info">
-                                    <p>Share this code with someone to start chatting</p>
-                                    <div class="storage-status">
-                                        <span id="storageStatus" class="status-indicator">🟢 Stored in Appwrite</span>
-                                    </div>
+                                
+                                <p class="code-info">This code expires when the room is closed</p>
+                                
+                                <div id="storageStatus" class="status-indicator">
+                                    <span>🟡 Storing securely...</span>
                                 </div>
-                                <div id="waitingForJoiner" class="waiting-state">
+                                
+                                <div id="waitingForJoiner" class="waiting-state hidden">
                                     <div class="pulse-dot"></div>
-                                    <p>Waiting for someone to join...</p>
+                                    <span>Waiting for someone to join...</span>
                                 </div>
                             </div>
                         </div>
@@ -89,44 +91,48 @@
             <div class="container">
                 <div class="join-content">
                     <div class="back-header">
-                        <button id="backFromJoinBtn" class="btn btn--outline btn--sm">← Back</button>
+                        <button id="backFromJoinBtn" class="btn btn--outline">← Back</button>
                         <h2>Join Room</h2>
                     </div>
                     
-                    <div class="join-card card">
+                    <div class="card">
                         <div class="card__body">
-                            <form id="joinForm" class="join-form">
+                            <form id="joinForm">
                                 <div class="form-group">
                                     <label for="codeInput" class="form-label">Enter Room Code</label>
-                                    <input type="text" 
-                                           id="codeInput" 
-                                           class="form-input" 
-                                           placeholder="XXXXXX" 
-                                           maxlength="6" 
-                                           autocomplete="off">
+                                    <input 
+                                        type="text" 
+                                        id="codeInput" 
+                                        class="form-input" 
+                                        placeholder="XXXXXX"
+                                        maxlength="6"
+                                        autocomplete="off"
+                                        required
+                                    >
                                 </div>
                                 
-                                <!-- Real-time validation feedback -->
-                                <div id="validationFeedback" class="validation-feedback">
+                                <div class="validation-feedback">
                                     <div class="validation-item">
                                         <span id="lengthCheck" class="validation-icon">⚪</span>
-                                        <span>Code must be 6 characters</span>
+                                        <span>6 characters</span>
                                     </div>
                                     <div class="validation-item">
                                         <span id="formatCheck" class="validation-icon">⚪</span>
-                                        <span>Only letters and numbers allowed</span>
+                                        <span>Letters and numbers only</span>
                                     </div>
                                     <div class="validation-item">
                                         <span id="existsCheck" class="validation-icon">⚪</span>
-                                        <span>Room must be available</span>
+                                        <span>Room exists</span>
                                     </div>
                                 </div>
                                 
-                                <div id="joinError" class="error-message hidden"></div>
+                                <div id="joinError" class="error-message hidden">
+                                    Error message will appear here
+                                </div>
                                 
                                 <button type="submit" id="joinBtn" class="btn btn--primary btn--lg btn--full-width">
+                                    <span id="joinSpinner" class="btn-spinner hidden"></span>
                                     <span id="joinBtnText">Join Room</span>
-                                    <div id="joinSpinner" class="btn-spinner hidden"></div>
                                 </button>
                             </form>
                         </div>
@@ -141,118 +147,181 @@
                 <!-- Chat Header -->
                 <div class="chat-header">
                     <div class="chat-info">
-                        <h3 id="chatTitle">PR Message</h3>
+                        <h3 id="chatTitle">PR Message - Room XXXXXX</h3>
                         <div id="connectionStatus" class="connection-status">
-                            <span class="status-dot"></span>
-                            <span class="status-text">Connected</span>
+                            <div class="status-dot"></div>
+                            <span class="status-text">Connecting...</span>
                         </div>
                     </div>
                     
-                    <!-- Media Controls -->
                     <div class="media-controls">
                         <button id="videoCallBtn" class="media-btn" title="Video Call">
-                            <span class="btn-icon">📹</span>
+                            📹
                         </button>
                         <button id="voiceCallBtn" class="media-btn" title="Voice Call">
-                            <span class="btn-icon">🎙️</span>
+                            📞
                         </button>
                         <button id="screenShareBtn" class="media-btn" title="Screen Share">
-                            <span class="btn-icon">🖥️</span>
+                            🖥️
                         </button>
-                        <button id="leaveChatBtn" class="btn btn--outline btn--sm">
-                            <span>Leave</span>
+                        <button id="voiceMessageBtn" class="media-btn" title="Voice Message">
+                            🎤
+                        </button>
+                        <button id="fileShareBtn" class="media-btn" title="Share File">
+                            📎
+                        </button>
+                        <button id="leaveChatBtn" class="btn btn--danger btn--sm">
+                            Leave
                         </button>
                     </div>
                 </div>
-
-                <!-- Video Call Container -->
+                
+                <!-- Video Container -->
                 <div id="videoContainer" class="video-container hidden">
-                    <video id="localVideo" class="local-video" autoplay muted playsinline></video>
                     <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
+                    <video id="localVideo" class="local-video" autoplay playsinline muted></video>
+                    
                     <div class="video-controls">
-                        <button id="toggleCameraBtn" class="video-control-btn">📹</button>
-                        <button id="toggleMicBtn" class="video-control-btn">🎙️</button>
-                        <button id="endCallBtn" class="video-control-btn end-call">📞</button>
+                        <button id="toggleCameraBtn" class="video-control-btn" title="Toggle Camera">
+                            📹
+                        </button>
+                        <button id="toggleMicBtn" class="video-control-btn" title="Toggle Microphone">
+                            🎤
+                        </button>
+                        <button id="endCallBtn" class="video-control-btn end-call" title="End Call">
+                            📞
+                        </button>
                     </div>
                 </div>
-
+                
                 <!-- Screen Share Container -->
                 <div id="screenShareContainer" class="screen-share-container hidden">
                     <video id="screenVideo" class="screen-video" autoplay playsinline></video>
-                    <button id="stopScreenShareBtn" class="btn btn--danger">Stop Sharing</button>
+                    <button id="stopScreenShareBtn" class="btn btn--danger">
+                        Stop Sharing
+                    </button>
                 </div>
-
-                <!-- Messages Area -->
+                
+                <!-- Chat Body -->
                 <div class="chat-body">
-                    <div id="messagesList" class="messages-list"></div>
-                </div>
-
-                <!-- Message Input -->
-                <div class="chat-input">
-                    <!-- Voice Recording -->
-                    <div id="voiceRecorder" class="voice-recorder hidden">
-                        <div class="recording-indicator">
-                            <div class="recording-dot"></div>
-                            <span id="recordingTime">00:00</span>
-                        </div>
-                        <div class="recording-controls">
-                            <button id="stopRecordingBtn" class="btn btn--danger btn--sm">Stop</button>
-                            <button id="cancelRecordingBtn" class="btn btn--outline btn--sm">Cancel</button>
-                        </div>
+                    <div id="messagesList" class="messages-list">
+                        <!-- Messages will be dynamically inserted here -->
                     </div>
-
-                    <!-- File Drop Zone -->
-                    <div id="fileDropZone" class="file-drop-zone hidden">
-                        <div class="drop-content">
-                            <span class="drop-icon">📁</span>
-                            <span class="drop-text">Drop files here to share</span>
-                        </div>
-                    </div>
-
-                    <!-- Message Form -->
-                    <form id="messageForm" class="message-form">
-                        <div class="input-container">
-                            <button type="button" id="voiceMessageBtn" class="input-btn" title="Voice Message">
-                                <span>🎤</span>
-                            </button>
-                            <button type="button" id="fileShareBtn" class="input-btn" title="Share File">
-                                <span>📎</span>
-                            </button>
-                            <input type="text" 
-                                   id="messageInput" 
-                                   class="message-input" 
-                                   placeholder="Type a message..." 
-                                   autocomplete="off">
-                            <button type="submit" id="sendBtn" class="send-btn" title="Send Message">
-                                <span>🚀</span>
-                            </button>
-                        </div>
-                    </form>
-
-                    <!-- Hidden file input -->
-                    <input type="file" id="fileInput" class="hidden" multiple>
                 </div>
-
+                
+                <!-- Voice Recorder -->
+                <div id="voiceRecorder" class="voice-recorder hidden">
+                    <div class="recording-indicator">
+                        <div class="recording-dot"></div>
+                        <span>Recording...</span>
+                        <span id="recordingTime">00:00</span>
+                    </div>
+                    
+                    <div class="recording-controls">
+                        <button id="stopRecordingBtn" class="btn btn--sm btn--primary">
+                            Send
+                        </button>
+                        <button id="cancelRecordingBtn" class="btn btn--sm btn--secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+                
                 <!-- File Transfer Progress -->
                 <div id="fileTransferProgress" class="file-progress hidden">
                     <div class="progress-header">
-                        <span class="progress-title">Transferring files...</span>
-                        <button id="cancelTransferBtn" class="btn btn--sm btn--outline">Cancel</button>
+                        <span id="transferFileName" class="progress-title">filename.pdf</span>
+                        <button id="cancelTransferBtn" class="btn btn--sm btn--secondary">Cancel</button>
                     </div>
                     <div class="progress-bar">
-                        <div id="transferProgressBar" class="progress-fill"></div>
+                        <div id="transferProgressBar" class="progress-fill" style="width: 0%"></div>
                     </div>
                     <div class="progress-info">
-                        <span id="transferFileName">filename.pdf</span>
-                        <span id="transferSpeed">1.2 MB/s</span>
+                        <span>0% complete</span>
+                        <span id="transferSpeed">0 KB/s</span>
                     </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="chat-input">
+                    <form id="messageForm" class="message-form">
+                        <div class="input-container">
+                            <button type="button" class="input-btn" title="Emoji">
+                                😊
+                            </button>
+                            
+                            <input 
+                                type="text" 
+                                id="messageInput" 
+                                class="message-input" 
+                                placeholder="Type a message..."
+                                autocomplete="off"
+                                required
+                            >
+                            
+                            <button type="submit" id="sendBtn" class="send-btn" title="Send Message">
+                                ➤
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Load Configuration and App -->
+    
+    <!-- File Drop Zone -->
+    <div id="fileDropZone" class="file-drop-zone hidden">
+        <div class="drop-content">
+            <div class="drop-icon">📁</div>
+            <div class="drop-text">Drop files here to share</div>
+        </div>
+    </div>
+    
+    <!-- Hidden File Input -->
+    <input type="file" id="fileInput" style="display: none;" multiple>
+    
+    <!-- Debug Panel -->
+    <div id="debugPanel" class="debug-panel hidden">
+        <div class="debug-header">
+            <h4>🔧 Debug Panel</h4>
+            <button id="toggleDebugBtn" class="btn btn--sm btn--secondary">Hide</button>
+        </div>
+        
+        <div id="debugContent" class="debug-info">
+            <div class="debug-item">
+                <strong>Status:</strong> <span>Loading...</span>
+            </div>
+        </div>
+        
+        <div class="debug-actions">
+            <button id="clearRoomsBtn" class="btn btn--sm btn--danger">Clear Rooms</button>
+            <button id="testConnectionBtn" class="btn btn--sm btn--info">Test Connection</button>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
     <script src="appwrite-config.js"></script>
     <script src="app.js"></script>
+    
+    <script>
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            window.prMessageApp = new PRMessageApp();
+        });
+        
+        // Service Worker Registration (optional)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
