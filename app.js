@@ -1,16 +1,22 @@
-class ChatConnectProApp {
+// PR Message - Main Application with Appwrite Integration
+class PRMessageApp {
     constructor() {
         // Application state
-        this.chatRooms = {};
+        this.chatRooms = new Map(); // Local cache
         this.currentUser = null;
         this.currentRoom = null;
+        this.currentRoomDoc = null;
         this.userRole = null; // 'creator' or 'joiner'
         this.messagePollingInterval = null;
-        this.pollingFrequency = 500;
+        this.pollingFrequency = 1000; // Reduced frequency with Appwrite real-time
         this.codeLength = 6;
-        this.maxRoomAge = 3600000; // 1 hour
         this.messageCounter = 0;
-
+        
+        // Appwrite state
+        this.session = null;
+        this.messageSubscription = null;
+        this.roomSubscription = null;
+        
         // WebRTC state
         this.peerConnection = null;
         this.localStream = null;
@@ -40,19 +46,65 @@ class ChatConnectProApp {
             audio: { echoCancellation: true, noiseSuppression: true }
         };
 
-        // DOM elements - will be initialized after DOM is ready
+        // DOM elements
         this.screens = {};
         this.elements = {};
 
         this.init();
     }
 
-    init() {
+    async init() {
+        console.log('🚀 Initializing PR Message App...');
+        
+        // Initialize DOM elements
         this.initializeElements();
         this.bindEvents();
+        
+        // Initialize Appwrite
+        await this.initializeAppwrite();
+        
+        // Show home screen
         this.showScreen('home');
-        this.startRoomCleanup();
         this.updateDebugInfo();
+        
+        console.log('✅ PR Message App initialized successfully');
+    }
+
+    async initializeAppwrite() {
+        try {
+            console.log('🔧 Initializing Appwrite...');
+            
+            // Validate configuration
+            if (!validateAppwriteConfig()) {
+                throw new Error('Appwrite configuration is incomplete');
+            }
+            
+            // Test connection
+            const connectionOk = await testAppwriteConnection();
+            if (!connectionOk) {
+                throw new Error('Cannot connect to Appwrite');
+            }
+            
+            // Create anonymous session
+            try {
+                this.session = await AppwriteHelper.createAnonymousSession();
+                console.log('✅ Anonymous session created:', this.session.$id);
+            } catch (error) {
+                // Session might already exist
+                try {
+                    this.session = await account.get();
+                    console.log('✅ Using existing session:', this.session.$id);
+                } catch (getError) {
+                    throw new Error('Failed to create or get session');
+                }
+            }
+            
+            this.currentUser = this.session.$id;
+            
+        } catch (error) {
+            console.error('❌ Appwrite initialization failed:', error);
+            this.showError('Failed to connect to Appwrite. Please check your configuration.');
+        }
     }
 
     initializeElements() {
@@ -66,497 +118,235 @@ class ChatConnectProApp {
 
         // Interactive elements
         this.elements = {
-            // Home screen
+            // Navigation
             createInviteBtn: document.getElementById('createInviteBtn'),
             joinWithCodeBtn: document.getElementById('joinWithCodeBtn'),
-            debugPanel: document.getElementById('debugPanel'),
-            debugContent: document.getElementById('debugContent'),
-            showDebugBtn: document.getElementById('showDebugBtn'),
-            toggleDebugBtn: document.getElementById('toggleDebugBtn'),
-
-            // Create invite screen
             backFromCreateBtn: document.getElementById('backFromCreateBtn'),
+            backFromJoinBtn: document.getElementById('backFromJoinBtn'),
+            
+            // Create invite
             codeGenerating: document.getElementById('codeGenerating'),
             codeGenerated: document.getElementById('codeGenerated'),
             inviteCode: document.getElementById('inviteCode'),
             copyCodeBtn: document.getElementById('copyCodeBtn'),
-
-            // Join screen
-            backFromJoinBtn: document.getElementById('backFromJoinBtn'),
+            storageStatus: document.getElementById('storageStatus'),
+            waitingForJoiner: document.getElementById('waitingForJoiner'),
+            
+            // Join room
             joinForm: document.getElementById('joinForm'),
             codeInput: document.getElementById('codeInput'),
             joinBtn: document.getElementById('joinBtn'),
             joinBtnText: document.getElementById('joinBtnText'),
             joinSpinner: document.getElementById('joinSpinner'),
             joinError: document.getElementById('joinError'),
-            validationSteps: document.getElementById('validationSteps'),
-
-            // Chat screen
+            
+            // Validation feedback
+            lengthCheck: document.getElementById('lengthCheck'),
+            formatCheck: document.getElementById('formatCheck'),
+            existsCheck: document.getElementById('existsCheck'),
+            
+            // Chat interface
             chatTitle: document.getElementById('chatTitle'),
             connectionStatus: document.getElementById('connectionStatus'),
             leaveChatBtn: document.getElementById('leaveChatBtn'),
-            settingsBtn: document.getElementById('settingsBtn'),
-
-            // Media controls
-            videoCallBtn: document.getElementById('videoCallBtn'),
-            voiceCallBtn: document.getElementById('voiceCallBtn'),
-            screenShareBtn: document.getElementById('screenShareBtn'),
-            voiceRecordBtn: document.getElementById('voiceRecordBtn'),
-            fileShareBtn: document.getElementById('fileShareBtn'),
-            connectionQuality: document.getElementById('connectionQuality'),
-            qualityText: document.getElementById('qualityText'),
-
-            // Video interface
-            videoInterface: document.getElementById('videoInterface'),
-            localVideo: document.getElementById('localVideo'),
-            remoteVideo: document.getElementById('remoteVideo'),
-            toggleCameraBtn: document.getElementById('toggleCameraBtn'),
-            toggleMicBtn: document.getElementById('toggleMicBtn'),
-            endCallBtn: document.getElementById('endCallBtn'),
-
-            // Screen share interface
-            screenShareInterface: document.getElementById('screenShareInterface'),
-            screenVideo: document.getElementById('screenVideo'),
-            stopScreenShareBtn: document.getElementById('stopScreenShareBtn'),
-
-            // Voice recording interface
-            voiceRecordInterface: document.getElementById('voiceRecordInterface'),
-            recordingTimer: document.getElementById('recordingTimer'),
-            stopRecordingBtn: document.getElementById('stopRecordingBtn'),
-            cancelRecordingBtn: document.getElementById('cancelRecordingBtn'),
-
-            // Messages
             messagesList: document.getElementById('messagesList'),
             messageForm: document.getElementById('messageForm'),
             messageInput: document.getElementById('messageInput'),
             sendBtn: document.getElementById('sendBtn'),
-            attachBtn: document.getElementById('attachBtn'),
+            
+            // Media controls
+            videoCallBtn: document.getElementById('videoCallBtn'),
+            voiceCallBtn: document.getElementById('voiceCallBtn'),
+            screenShareBtn: document.getElementById('screenShareBtn'),
+            voiceMessageBtn: document.getElementById('voiceMessageBtn'),
+            fileShareBtn: document.getElementById('fileShareBtn'),
             fileInput: document.getElementById('fileInput'),
+            
+            // Video/Screen containers
+            videoContainer: document.getElementById('videoContainer'),
+            screenShareContainer: document.getElementById('screenShareContainer'),
+            localVideo: document.getElementById('localVideo'),
+            remoteVideo: document.getElementById('remoteVideo'),
+            screenVideo: document.getElementById('screenVideo'),
+            
+            // Video controls
+            toggleCameraBtn: document.getElementById('toggleCameraBtn'),
+            toggleMicBtn: document.getElementById('toggleMicBtn'),
+            endCallBtn: document.getElementById('endCallBtn'),
+            stopScreenShareBtn: document.getElementById('stopScreenShareBtn'),
+            
+            // Voice recording
+            voiceRecorder: document.getElementById('voiceRecorder'),
+            recordingTime: document.getElementById('recordingTime'),
+            stopRecordingBtn: document.getElementById('stopRecordingBtn'),
+            cancelRecordingBtn: document.getElementById('cancelRecordingBtn'),
+            
+            // File transfer
             fileDropZone: document.getElementById('fileDropZone'),
-
-            // Settings modal
-            settingsModal: document.getElementById('settingsModal'),
-            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-            cameraSelect: document.getElementById('cameraSelect'),
-            microphoneSelect: document.getElementById('microphoneSelect'),
-            speakerSelect: document.getElementById('speakerSelect')
+            fileTransferProgress: document.getElementById('fileTransferProgress'),
+            transferProgressBar: document.getElementById('transferProgressBar'),
+            transferFileName: document.getElementById('transferFileName'),
+            transferSpeed: document.getElementById('transferSpeed'),
+            cancelTransferBtn: document.getElementById('cancelTransferBtn'),
+            
+            // Debug panel
+            debugPanel: document.getElementById('debugPanel'),
+            debugContent: document.getElementById('debugContent'),
+            showDebugBtn: document.getElementById('showDebugBtn'),
+            toggleDebugBtn: document.getElementById('toggleDebugBtn'),
+            clearRoomsBtn: document.getElementById('clearRoomsBtn'),
+            testConnectionBtn: document.getElementById('testConnectionBtn')
         };
     }
 
     bindEvents() {
         // Navigation events
-        if (this.elements.createInviteBtn) {
-            this.elements.createInviteBtn.addEventListener('click', () => {
-                console.log('Create Invite clicked');
-                this.createInvite();
-            });
-        }
-
-        if (this.elements.joinWithCodeBtn) {
-            this.elements.joinWithCodeBtn.addEventListener('click', () => {
-                console.log('Join with Code clicked');
-                this.showJoinScreen();
-            });
-        }
-
-        if (this.elements.backFromCreateBtn) {
-            this.elements.backFromCreateBtn.addEventListener('click', () => this.showScreen('home'));
-        }
-
-        if (this.elements.backFromJoinBtn) {
-            this.elements.backFromJoinBtn.addEventListener('click', () => this.showScreen('home'));
-        }
-
-        if (this.elements.leaveChatBtn) {
-            this.elements.leaveChatBtn.addEventListener('click', () => this.leaveChat());
-        }
-
-        // Debug panel
-        if (this.elements.showDebugBtn) {
-            this.elements.showDebugBtn.addEventListener('click', () => {
-                console.log('Show debug clicked');
-                this.toggleDebugPanel(true);
-            });
-        }
-
-        if (this.elements.toggleDebugBtn) {
-            this.elements.toggleDebugBtn.addEventListener('click', () => {
-                console.log('Toggle debug clicked');
-                this.toggleDebugPanel(false);
-            });
-        }
-
-        // Invite functionality
-        if (this.elements.copyCodeBtn) {
-            this.elements.copyCodeBtn.addEventListener('click', () => this.copyInviteCode());
-        }
-
-        // Join functionality with real-time validation
-        if (this.elements.joinForm) {
-            this.elements.joinForm.addEventListener('submit', (e) => this.handleJoinSubmit(e));
-        }
-
-        if (this.elements.codeInput) {
-            this.elements.codeInput.addEventListener('input', (e) => this.handleCodeInput(e));
-        }
-
-        // Settings
-        if (this.elements.settingsBtn) {
-            this.elements.settingsBtn.addEventListener('click', () => this.showSettings());
-        }
-
-        if (this.elements.closeSettingsBtn) {
-            this.elements.closeSettingsBtn.addEventListener('click', () => this.hideSettings());
-        }
-
-        if (this.elements.settingsModal) {
-            this.elements.settingsModal.addEventListener('click', (e) => {
-                if (e.target === this.elements.settingsModal) this.hideSettings();
-            });
-        }
-
-        // Media controls
-        if (this.elements.videoCallBtn) {
-            this.elements.videoCallBtn.addEventListener('click', () => this.toggleVideoCall());
-        }
-
-        if (this.elements.voiceCallBtn) {
-            this.elements.voiceCallBtn.addEventListener('click', () => this.toggleVoiceCall());
-        }
-
-        if (this.elements.screenShareBtn) {
-            this.elements.screenShareBtn.addEventListener('click', () => this.toggleScreenShare());
-        }
-
-        if (this.elements.voiceRecordBtn) {
-            this.elements.voiceRecordBtn.addEventListener('click', () => this.startVoiceRecording());
-        }
-
-        if (this.elements.fileShareBtn && this.elements.fileInput) {
-            this.elements.fileShareBtn.addEventListener('click', () => this.elements.fileInput.click());
-        }
-
-        // Video controls
-        if (this.elements.toggleCameraBtn) {
-            this.elements.toggleCameraBtn.addEventListener('click', () => this.toggleCamera());
-        }
-
-        if (this.elements.toggleMicBtn) {
-            this.elements.toggleMicBtn.addEventListener('click', () => this.toggleMicrophone());
-        }
-
-        if (this.elements.endCallBtn) {
-            this.elements.endCallBtn.addEventListener('click', () => this.endCall());
-        }
-
-        if (this.elements.stopScreenShareBtn) {
-            this.elements.stopScreenShareBtn.addEventListener('click', () => this.stopScreenShare());
-        }
-
-        // Voice recording controls
-        if (this.elements.stopRecordingBtn) {
-            this.elements.stopRecordingBtn.addEventListener('click', () => this.stopRecording(true));
-        }
-
-        if (this.elements.cancelRecordingBtn) {
-            this.elements.cancelRecordingBtn.addEventListener('click', () => this.stopRecording(false));
-        }
-
-        // Chat functionality
-        if (this.elements.messageForm) {
-            this.elements.messageForm.addEventListener('submit', (e) => this.handleMessageSubmit(e));
-        }
-
-        if (this.elements.messageInput) {
-            this.elements.messageInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.handleMessageSubmit(e);
-                }
-            });
-        }
-
-        // File handling
-        if (this.elements.attachBtn && this.elements.fileInput) {
-            this.elements.attachBtn.addEventListener('click', () => this.elements.fileInput.click());
-        }
-
-        if (this.elements.fileInput) {
-            this.elements.fileInput.addEventListener('change', (e) => this.handleFileSelection(e));
-        }
-
-        // Drag and drop
-        this.bindDragAndDropEvents();
-    }
-
-    bindDragAndDropEvents() {
-        const chatContainer = document.querySelector('.chat-container');
-        if (!chatContainer) return;
+        this.elements.createInviteBtn?.addEventListener('click', () => this.createInvite());
+        this.elements.joinWithCodeBtn?.addEventListener('click', () => this.showJoinScreen());
+        this.elements.backFromCreateBtn?.addEventListener('click', () => this.showScreen('home'));
+        this.elements.backFromJoinBtn?.addEventListener('click', () => this.showScreen('home'));
+        this.elements.leaveChatBtn?.addEventListener('click', () => this.leaveChat());
         
-        chatContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            if (this.elements.fileDropZone) {
-                this.elements.fileDropZone.classList.remove('hidden');
-            }
-        });
-
-        chatContainer.addEventListener('dragleave', (e) => {
-            if (!chatContainer.contains(e.relatedTarget) && this.elements.fileDropZone) {
-                this.elements.fileDropZone.classList.add('hidden');
-            }
-        });
-
-        chatContainer.addEventListener('drop', (e) => {
-            e.preventDefault();
-            if (this.elements.fileDropZone) {
-                this.elements.fileDropZone.classList.add('hidden');
-            }
-            const files = Array.from(e.dataTransfer.files);
-            this.handleFiles(files);
-        });
-    }
-
-    // Debug functionality
-    toggleDebugPanel(show) {
-        if (show) {
-            if (this.elements.debugPanel) {
-                this.elements.debugPanel.classList.remove('hidden');
-            }
-            if (this.elements.showDebugBtn) {
-                this.elements.showDebugBtn.classList.add('hidden');
-            }
-        } else {
-            if (this.elements.debugPanel) {
-                this.elements.debugPanel.classList.add('hidden');
-            }
-            if (this.elements.showDebugBtn) {
-                this.elements.showDebugBtn.classList.remove('hidden');
-            }
-        }
-        this.updateDebugInfo();
-    }
-
-    updateDebugInfo() {
-        if (!this.elements.debugContent) return;
-
-        const info = {
-            'Active Rooms': Object.keys(this.chatRooms).length,
-            'Current Room': this.currentRoom || 'None',
-            'User Role': this.userRole || 'None',
-            'WebRTC State': this.peerConnection?.connectionState || 'None',
-            'Video Active': this.isVideoCall,
-            'Voice Active': this.isVoiceCall,
-            'Screen Share': this.isScreenSharing,
-            'Recording': this.isRecording
-        };
-
-        const debugText = Object.entries(info)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join('\n');
-
-        this.elements.debugContent.textContent = debugText;
-    }
-
-    // Code validation with real-time feedback
-    validateCode(code) {
-        if (!this.elements.validationSteps) return false;
-
-        const steps = [
-            {
-                key: 'length',
-                text: `Code must be ${this.codeLength} characters`,
-                valid: code.length === this.codeLength
-            },
-            {
-                key: 'format',
-                text: 'Only letters and numbers allowed',
-                valid: /^[A-Z0-9]+$/.test(code)
-            },
-            {
-                key: 'exists',
-                text: 'Code must exist in system',
-                valid: code.length === this.codeLength ? !!this.chatRooms[code] : null
-            },
-            {
-                key: 'available',
-                text: 'Room must be available',
-                valid: code.length === this.codeLength && this.chatRooms[code] ? 
-                    !this.chatRooms[code].joiner : null
-            }
-        ];
-
-        // Update validation UI
-        this.elements.validationSteps.innerHTML = steps.map(step => {
-            let className = 'validation-step';
-            if (step.valid === true) className += ' valid';
-            else if (step.valid === false) className += ' invalid';
-            
-            return `<div class="${className}">${step.text}</div>`;
-        }).join('');
-
-        return steps.every(step => step.valid === true);
-    }
-
-    handleCodeInput(e) {
-        // Convert to uppercase, remove invalid characters, and limit length
-        let value = e.target.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-        e.target.value = value.substring(0, this.codeLength);
+        // Join form events
+        this.elements.joinForm?.addEventListener('submit', (e) => this.handleJoinForm(e));
+        this.elements.codeInput?.addEventListener('input', (e) => this.validateCodeInput(e.target.value));
         
-        // Real-time validation
-        this.validateCode(value);
-        this.clearJoinError();
+        // Copy code event
+        this.elements.copyCodeBtn?.addEventListener('click', () => this.copyInviteCode());
+        
+        // Message form events
+        this.elements.messageForm?.addEventListener('submit', (e) => this.handleMessageForm(e));
+        
+        // Media control events
+        this.elements.videoCallBtn?.addEventListener('click', () => this.toggleVideoCall());
+        this.elements.voiceCallBtn?.addEventListener('click', () => this.toggleVoiceCall());
+        this.elements.screenShareBtn?.addEventListener('click', () => this.toggleScreenShare());
+        this.elements.voiceMessageBtn?.addEventListener('click', () => this.toggleVoiceRecording());
+        this.elements.fileShareBtn?.addEventListener('click', () => this.elements.fileInput?.click());
+        
+        // File input event
+        this.elements.fileInput?.addEventListener('change', (e) => this.handleFileSelect(e));
+        
+        // Video control events
+        this.elements.toggleCameraBtn?.addEventListener('click', () => this.toggleCamera());
+        this.elements.toggleMicBtn?.addEventListener('click', () => this.toggleMicrophone());
+        this.elements.endCallBtn?.addEventListener('click', () => this.endCall());
+        this.elements.stopScreenShareBtn?.addEventListener('click', () => this.stopScreenShare());
+        
+        // Voice recording events
+        this.elements.stopRecordingBtn?.addEventListener('click', () => this.stopVoiceRecording());
+        this.elements.cancelRecordingBtn?.addEventListener('click', () => this.cancelVoiceRecording());
+        
+        // Debug events
+        this.elements.showDebugBtn?.addEventListener('click', () => this.showDebugPanel());
+        this.elements.toggleDebugBtn?.addEventListener('click', () => this.hideDebugPanel());
+        this.elements.clearRoomsBtn?.addEventListener('click', () => this.clearAllRooms());
+        this.elements.testConnectionBtn?.addEventListener('click', () => this.testConnection());
+        
+        // Drag and drop events
+        this.setupDragAndDrop();
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
     }
 
-    showScreen(screenName) {
+    // Core room management with Appwrite
+    async createInvite() {
         try {
-            console.log(`Switching to screen: ${screenName}`);
+            console.log('🔒 Creating bulletproof room...');
+            this.showScreen('createInvite');
             
-            // Hide all screens
-            Object.values(this.screens).forEach(screen => {
-                if (screen) {
-                    screen.classList.remove('active');
-                }
-            });
+            // Show generating state
+            this.elements.codeGenerating?.classList.remove('hidden');
+            this.elements.codeGenerated?.classList.add('hidden');
             
-            // Show target screen
-            if (this.screens[screenName]) {
-                this.screens[screenName].classList.add('active');
-                console.log(`Screen ${screenName} is now active`);
-            } else {
-                console.error(`Screen '${screenName}' not found`);
-            }
+            // Generate unique code
+            const code = this.generateInviteCode();
+            console.log('Generated code:', code);
             
-            this.updateDebugInfo();
+            // Store in Appwrite
+            const roomDoc = await AppwriteHelper.createRoom(code, this.currentUser);
+            console.log('Room created in Appwrite:', roomDoc);
+            
+            // Store locally
+            const roomData = {
+                code: code,
+                creator: this.currentUser,
+                joiner: null,
+                messages: [],
+                createdAt: new Date(),
+                appwriteId: roomDoc.$id
+            };
+            
+            this.chatRooms.set(code, roomData);
+            this.currentRoom = code;
+            this.currentRoomDoc = roomDoc;
+            this.userRole = 'creator';
+            
+            // Show generated code
+            this.displayGeneratedCode(code);
+            
+            // Subscribe to room updates
+            this.subscribeToRoom(code);
+            
+            // Update storage status
+            this.elements.storageStatus.textContent = '🟢 Stored in Appwrite';
+            this.elements.storageStatus.style.color = 'var(--color-teal-600)';
+            
+            console.log('✅ Room created successfully');
+            
         } catch (error) {
-            console.error('Error switching screens:', error);
+            console.error('❌ Failed to create room:', error);
+            this.showError('Failed to create room. Please try again.');
+            this.showScreen('home');
         }
     }
 
-    generateSecureCode() {
+    generateInviteCode() {
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let result = '';
+        let code = '';
         
-        // Use crypto.getRandomValues for cryptographically secure random generation
-        if (crypto && crypto.getRandomValues) {
-            const randomBytes = new Uint8Array(this.codeLength);
-            crypto.getRandomValues(randomBytes);
+        // Use crypto.getRandomValues for secure random generation
+        const array = new Uint8Array(this.codeLength);
+        crypto.getRandomValues(array);
+        
+        for (let i = 0; i < this.codeLength; i++) {
+            code += characters[array[i] % characters.length];
+        }
+        
+        return code;
+    }
+
+    displayGeneratedCode(code) {
+        this.elements.codeGenerating?.classList.add('hidden');
+        this.elements.codeGenerated?.classList.remove('hidden');
+        this.elements.inviteCode.textContent = code;
+        this.elements.waitingForJoiner?.classList.remove('hidden');
+    }
+
+    async copyInviteCode() {
+        const code = this.elements.inviteCode?.textContent;
+        if (!code) return;
+        
+        try {
+            await navigator.clipboard.writeText(code);
             
-            for (let i = 0; i < this.codeLength; i++) {
-                result += characters.charAt(randomBytes[i] % characters.length);
-            }
-        } else {
-            // Fallback for environments without crypto API
-            for (let i = 0; i < this.codeLength; i++) {
-                result += characters.charAt(Math.floor(Math.random() * characters.length));
-            }
-        }
-        
-        return result;
-    }
-
-    createInvite() {
-        console.log('Creating invite...');
-        this.showScreen('createInvite');
-        
-        // Show loading state
-        if (this.elements.codeGenerating) {
-            this.elements.codeGenerating.classList.remove('hidden');
-        }
-        if (this.elements.codeGenerated) {
-            this.elements.codeGenerated.classList.add('hidden');
-        }
-
-        // Generate code after a short delay for better UX
-        setTimeout(() => {
-            try {
-                // Generate unique room code
-                let roomCode;
-                do {
-                    roomCode = this.generateSecureCode();
-                } while (this.chatRooms[roomCode]);
-
-                console.log(`Generated room code: ${roomCode}`);
-
-                // Create chat room
-                this.currentRoom = roomCode;
-                this.userRole = 'creator';
-                this.currentUser = 'creator_' + Date.now();
-                
-                this.chatRooms[roomCode] = {
-                    roomCode: roomCode,
-                    creator: this.currentUser,
-                    joiner: null,
-                    messages: [],
-                    createdAt: Date.now(),
-                    connected: false
-                };
-
-                // Update UI
-                if (this.elements.inviteCode) {
-                    this.elements.inviteCode.textContent = roomCode;
-                }
-                
-                if (this.elements.codeGenerating) {
-                    this.elements.codeGenerating.classList.add('hidden');
-                }
-                
-                if (this.elements.codeGenerated) {
-                    this.elements.codeGenerated.classList.remove('hidden');
-                }
-
-                console.log('Room created successfully');
-                
-                // Start polling for joiner
-                this.startConnectionPolling();
-                this.updateDebugInfo();
-                
-                this.showToast('Room created! Share the code to invite someone.');
-            } catch (error) {
-                console.error('Error generating invite:', error);
-                this.showToast('Error generating invite code. Please try again.', 'error');
-                this.showScreen('home');
-            }
-        }, 1500); // Slightly longer delay to show the loading animation
-    }
-
-    startConnectionPolling() {
-        const pollForConnection = () => {
-            try {
-                const room = this.chatRooms[this.currentRoom];
-                if (room && room.joiner && room.connected) {
-                    console.log('Connection established, entering chat');
-                    this.enterChat();
-                    return;
-                }
-                if (room) {
-                    setTimeout(pollForConnection, this.pollingFrequency);
-                }
-            } catch (error) {
-                console.error('Error in connection polling:', error);
-            }
-        };
-        
-        setTimeout(pollForConnection, this.pollingFrequency);
-    }
-
-    copyInviteCode() {
-        if (!this.elements.inviteCode) return;
-        
-        const code = this.elements.inviteCode.textContent;
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(code).then(() => {
-                this.showToast('Code copied to clipboard!');
-                this.updateCopyButton();
-            }).catch(() => {
-                this.fallbackCopyText(code);
-            });
-        } else {
-            this.fallbackCopyText(code);
+            // Visual feedback
+            const originalText = this.elements.copyCodeBtn.innerHTML;
+            this.elements.copyCodeBtn.innerHTML = '<span>✅ Copied!</span>';
+            
+            setTimeout(() => {
+                this.elements.copyCodeBtn.innerHTML = originalText;
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Failed to copy code:', error);
+            // Fallback for older browsers
+            this.fallbackCopyTextToClipboard(code);
         }
     }
 
-    fallbackCopyText(text) {
+    fallbackCopyTextToClipboard(text) {
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
@@ -568,520 +358,473 @@ class ChatConnectProApp {
         
         try {
             document.execCommand('copy');
-            this.showToast('Code copied to clipboard!');
-            this.updateCopyButton();
+            console.log('Fallback: Text copied to clipboard');
         } catch (err) {
-            console.error('Fallback copy failed:', err);
-            this.showToast('Unable to copy code. Please copy manually.', 'error');
+            console.error('Fallback: Could not copy text:', err);
         }
         
         document.body.removeChild(textArea);
     }
 
-    updateCopyButton() {
-        if (!this.elements.copyCodeBtn) return;
-        
-        const originalText = this.elements.copyCodeBtn.textContent;
-        this.elements.copyCodeBtn.textContent = 'Copied!';
-        setTimeout(() => {
-            this.elements.copyCodeBtn.textContent = originalText;
-        }, 2000);
+    showJoinScreen() {
+        this.showScreen('join');
+        this.elements.codeInput?.focus();
     }
 
-    showJoinScreen() {
-        console.log('Showing join screen...');
-        this.showScreen('join');
-        setTimeout(() => {
-            if (this.elements.codeInput) {
-                this.elements.codeInput.focus();
+    validateCodeInput(value) {
+        const code = value.trim().toUpperCase();
+        
+        // Length validation
+        if (code.length === 6) {
+            this.elements.lengthCheck.textContent = '✅';
+            this.elements.lengthCheck.style.color = 'var(--color-teal-600)';
+        } else {
+            this.elements.lengthCheck.textContent = code.length > 6 ? '❌' : '⚪';
+            this.elements.lengthCheck.style.color = code.length > 6 ? 'var(--color-red-500)' : 'var(--color-gray-400)';
+        }
+        
+        // Format validation
+        const isValidFormat = /^[A-Z0-9]*$/.test(code);
+        if (isValidFormat && code.length > 0) {
+            this.elements.formatCheck.textContent = '✅';
+            this.elements.formatCheck.style.color = 'var(--color-teal-600)';
+        } else if (code.length > 0 && !isValidFormat) {
+            this.elements.formatCheck.textContent = '❌';
+            this.elements.formatCheck.style.color = 'var(--color-red-500)';
+        } else {
+            this.elements.formatCheck.textContent = '⚪';
+            this.elements.formatCheck.style.color = 'var(--color-gray-400)';
+        }
+        
+        // Room existence validation (async)
+        if (code.length === 6 && isValidFormat) {
+            this.checkRoomExists(code);
+        } else {
+            this.elements.existsCheck.textContent = '⚪';
+            this.elements.existsCheck.style.color = 'var(--color-gray-400)';
+        }
+        
+        // Auto-format input
+        this.elements.codeInput.value = code;
+    }
+
+    async checkRoomExists(code) {
+        try {
+            const room = await AppwriteHelper.findRoom(code);
+            if (room) {
+                this.elements.existsCheck.textContent = '✅';
+                this.elements.existsCheck.style.color = 'var(--color-teal-600)';
+            } else {
+                this.elements.existsCheck.textContent = '❌';
+                this.elements.existsCheck.style.color = 'var(--color-red-500)';
             }
-        }, 100);
-        this.clearJoinError();
-        if (this.elements.validationSteps) {
-            this.elements.validationSteps.innerHTML = '';
+        } catch (error) {
+            console.error('Failed to check room existence:', error);
+            this.elements.existsCheck.textContent = '⚠️';
+            this.elements.existsCheck.style.color = 'var(--color-orange-500)';
         }
     }
 
-    handleJoinSubmit(e) {
+    async handleJoinForm(e) {
         e.preventDefault();
         
-        if (!this.elements.codeInput) return;
-        
-        const code = this.elements.codeInput.value.trim().toUpperCase();
-        
-        // Validate code format first
-        if (!this.validateCode(code)) {
-            this.showJoinError('Please fix the validation errors above.');
+        const code = this.elements.codeInput?.value.trim().toUpperCase();
+        if (!code || code.length !== 6) {
+            this.showJoinError('Please enter a valid 6-character code');
             return;
         }
-
-        // Show loading state
-        this.setJoinButtonLoading(true);
-
-        // Simulate network delay
-        setTimeout(() => {
-            try {
-                const room = this.chatRooms[code];
-                
-                if (!room) {
-                    this.showJoinError('Invalid code. Room not found.');
-                    this.setJoinButtonLoading(false);
-                    return;
-                }
-
-                if (room.joiner) {
-                    this.showJoinError('This room is already full.');
-                    this.setJoinButtonLoading(false);
-                    return;
-                }
-
-                // Join the room
-                this.currentRoom = code;
-                this.userRole = 'joiner';
-                this.currentUser = 'joiner_' + Date.now();
-                
-                room.joiner = this.currentUser;
-                room.connected = true;
-
-                // Add system message
-                this.addSystemMessage(code, 'Connected! Advanced features available.');
-
-                this.setJoinButtonLoading(false);
-                this.enterChat();
-                
-                console.log(`Successfully joined room: ${code}`);
-            } catch (error) {
-                console.error('Error joining room:', error);
-                this.showJoinError('Error joining room. Please try again.');
-                this.setJoinButtonLoading(false);
+        
+        try {
+            // Show loading state
+            this.setJoinButtonLoading(true);
+            this.hideJoinError();
+            
+            console.log('🛡️ Attempting to join room:', code);
+            
+            // Find room in Appwrite
+            const roomDoc = await AppwriteHelper.findRoom(code);
+            if (!roomDoc) {
+                throw new Error('Room not found');
             }
-        }, 800);
+            
+            // Check if room is available
+            if (roomDoc.joiner_id) {
+                throw new Error('Room is full');
+            }
+            
+            // Join the room
+            await AppwriteHelper.joinRoom(roomDoc.$id, this.currentUser);
+            
+            // Set up local state
+            this.currentRoom = code;
+            this.currentRoomDoc = roomDoc;
+            this.userRole = 'joiner';
+            
+            // Load room data
+            const roomData = {
+                code: code,
+                creator: roomDoc.creator_id,
+                joiner: this.currentUser,
+                messages: [],
+                createdAt: new Date(roomDoc.created_at),
+                appwriteId: roomDoc.$id
+            };
+            
+            this.chatRooms.set(code, roomData);
+            
+            // Subscribe to room updates
+            this.subscribeToRoom(code);
+            this.subscribeToMessages(code);
+            
+            // Load existing messages
+            await this.loadMessages(code);
+            
+            // Enter chat
+            this.enterChat();
+            
+            console.log('✅ Successfully joined room');
+            
+        } catch (error) {
+            console.error('❌ Failed to join room:', error);
+            let errorMessage = 'Failed to join room';
+            
+            if (error.message === 'Room not found') {
+                errorMessage = 'Room code not found. Please check the code and try again.';
+            } else if (error.message === 'Room is full') {
+                errorMessage = 'This room is already full. Please get a new invite code.';
+            }
+            
+            this.showJoinError(errorMessage);
+        } finally {
+            this.setJoinButtonLoading(false);
+        }
     }
 
     setJoinButtonLoading(loading) {
         if (loading) {
-            if (this.elements.joinBtnText) {
-                this.elements.joinBtnText.textContent = 'Joining...';
-            }
-            if (this.elements.joinSpinner) {
-                this.elements.joinSpinner.classList.remove('hidden');
-            }
-            if (this.elements.joinBtn) {
-                this.elements.joinBtn.disabled = true;
-            }
+            this.elements.joinBtnText.textContent = 'Joining...';
+            this.elements.joinSpinner?.classList.remove('hidden');
+            this.elements.joinBtn.disabled = true;
         } else {
-            if (this.elements.joinBtnText) {
-                this.elements.joinBtnText.textContent = 'Join Room';
-            }
-            if (this.elements.joinSpinner) {
-                this.elements.joinSpinner.classList.add('hidden');
-            }
-            if (this.elements.joinBtn) {
-                this.elements.joinBtn.disabled = false;
-            }
+            this.elements.joinBtnText.textContent = 'Join Room';
+            this.elements.joinSpinner?.classList.add('hidden');
+            this.elements.joinBtn.disabled = false;
         }
     }
 
     showJoinError(message) {
-        if (this.elements.joinError) {
-            this.elements.joinError.textContent = message;
-            this.elements.joinError.classList.remove('hidden');
-        }
+        this.elements.joinError.textContent = message;
+        this.elements.joinError?.classList.remove('hidden');
     }
 
-    clearJoinError() {
-        if (this.elements.joinError) {
-            this.elements.joinError.classList.add('hidden');
-        }
+    hideJoinError() {
+        this.elements.joinError?.classList.add('hidden');
     }
 
+    // Chat functionality
     enterChat() {
-        console.log('Entering chat...');
         this.showScreen('chat');
+        this.elements.chatTitle.textContent = `PR Message - Room ${this.currentRoom}`;
+        this.elements.messageInput?.focus();
         
-        if (this.elements.chatTitle) {
-            this.elements.chatTitle.textContent = `Room: ${this.currentRoom}`;
-        }
-        
-        setTimeout(() => {
-            if (this.elements.messageInput) {
-                this.elements.messageInput.focus();
+        // Show connection status
+        this.updateConnectionStatus('connected');
+    }
+
+    async loadMessages(roomCode) {
+        try {
+            const messages = await AppwriteHelper.getMessages(roomCode);
+            const roomData = this.chatRooms.get(roomCode);
+            if (roomData) {
+                roomData.messages = messages;
+                this.displayMessages(messages);
             }
-        }, 100);
-        
-        this.loadMessages();
-        this.startMessagePolling();
-        this.updateConnectionStatus();
-        this.updateDebugInfo();
-    }
-
-    updateConnectionStatus() {
-        if (!this.elements.connectionStatus) return;
-        
-        const status = this.peerConnection?.connectionState || 'connected';
-        const statusElement = this.elements.connectionStatus;
-        
-        statusElement.classList.remove('status--success', 'status--warning', 'status--error');
-        
-        switch (status) {
-            case 'connected':
-                statusElement.textContent = 'Connected';
-                statusElement.classList.add('status--success');
-                break;
-            case 'connecting':
-                statusElement.textContent = 'Connecting...';
-                statusElement.classList.add('status--warning');
-                break;
-            case 'disconnected':
-            case 'failed':
-                statusElement.textContent = 'Disconnected';
-                statusElement.classList.add('status--error');
-                break;
-            default:
-                statusElement.textContent = 'Connected';
-                statusElement.classList.add('status--success');
+        } catch (error) {
+            console.error('Failed to load messages:', error);
         }
     }
 
-    // Media functionality stubs for now (will be implemented later)
-    async toggleVideoCall() {
-        this.isVideoCall = !this.isVideoCall;
-        if (this.elements.videoCallBtn) {
-            this.elements.videoCallBtn.classList.toggle('active', this.isVideoCall);
-        }
-        this.showToast(this.isVideoCall ? 'Video call started (demo)' : 'Video call ended');
-        this.updateDebugInfo();
-    }
-
-    async toggleVoiceCall() {
-        this.isVoiceCall = !this.isVoiceCall;
-        if (this.elements.voiceCallBtn) {
-            this.elements.voiceCallBtn.classList.toggle('active', this.isVoiceCall);
-        }
-        this.showToast(this.isVoiceCall ? 'Voice call started (demo)' : 'Voice call ended');
-        this.updateDebugInfo();
-    }
-
-    async toggleScreenShare() {
-        this.isScreenSharing = !this.isScreenSharing;
-        if (this.elements.screenShareBtn) {
-            this.elements.screenShareBtn.classList.toggle('active', this.isScreenSharing);
-        }
-        this.showToast(this.isScreenSharing ? 'Screen sharing started (demo)' : 'Screen sharing stopped');
-        this.updateDebugInfo();
-    }
-
-    startVoiceRecording() {
-        this.isRecording = !this.isRecording;
-        if (this.elements.voiceRecordBtn) {
-            this.elements.voiceRecordBtn.classList.toggle('active', this.isRecording);
-        }
-        this.showToast(this.isRecording ? 'Voice recording started (demo)' : 'Voice recording stopped');
-        this.updateDebugInfo();
-    }
-
-    toggleCamera() {
-        this.showToast('Camera toggled (demo)');
-    }
-
-    toggleMicrophone() {
-        this.showToast('Microphone toggled (demo)');
-    }
-
-    endCall() {
-        this.isVideoCall = false;
-        this.isVoiceCall = false;
-        if (this.elements.videoCallBtn) {
-            this.elements.videoCallBtn.classList.remove('active');
-        }
-        if (this.elements.voiceCallBtn) {
-            this.elements.voiceCallBtn.classList.remove('active');
-        }
-        this.showToast('Call ended');
-        this.updateDebugInfo();
-    }
-
-    stopScreenShare() {
-        this.isScreenSharing = false;
-        if (this.elements.screenShareBtn) {
-            this.elements.screenShareBtn.classList.remove('active');
-        }
-        this.showToast('Screen sharing stopped');
-        this.updateDebugInfo();
-    }
-
-    stopRecording(send = false) {
-        this.isRecording = false;
-        if (this.elements.voiceRecordBtn) {
-            this.elements.voiceRecordBtn.classList.remove('active');
-        }
-        this.showToast(send ? 'Voice message sent (demo)' : 'Recording cancelled');
-        this.updateDebugInfo();
-    }
-
-    handleFileSelection(e) {
-        const files = Array.from(e.target.files);
-        this.showToast(`${files.length} file(s) selected for sharing (demo)`);
-        e.target.value = ''; // Reset input
-    }
-
-    handleFiles(files) {
-        this.showToast(`${files.length} file(s) dropped for sharing (demo)`);
-    }
-
-    // Message handling
-    handleMessageSubmit(e) {
-        e.preventDefault();
-        
-        if (!this.elements.messageInput) return;
-        
-        const messageText = this.elements.messageInput.value.trim();
-        if (!messageText) return;
-
-        this.sendMessage(messageText);
-        this.elements.messageInput.value = '';
-    }
-
-    sendMessage(text, type = 'text', metadata = null) {
-        const room = this.chatRooms[this.currentRoom];
-        if (!room) return;
-
-        const message = {
-            id: ++this.messageCounter,
-            text: text,
-            type: type,
-            metadata: metadata,
-            sender: this.currentUser,
-            timestamp: Date.now()
-        };
-
-        room.messages.push(message);
-        this.renderMessage(message);
+    displayMessages(messages) {
+        this.elements.messagesList.innerHTML = '';
+        messages.forEach(msg => this.displayMessage(msg));
         this.scrollToBottom();
     }
 
-    addSystemMessage(roomCode, text) {
-        const room = this.chatRooms[roomCode];
-        if (!room) return;
-
-        const message = {
-            id: ++this.messageCounter,
-            text: text,
-            type: 'system',
-            sender: 'system',
-            timestamp: Date.now()
-        };
-
-        room.messages.push(message);
-    }
-
-    loadMessages() {
-        const room = this.chatRooms[this.currentRoom];
-        if (!room || !this.elements.messagesList) return;
-
-        this.elements.messagesList.innerHTML = '';
+    displayMessage(message) {
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${message.sender_id === this.currentUser ? 'message--sent' : 'message--received'}`;
         
-        if (room.messages.length === 0) {
-            this.showEmptyState();
-        } else {
-            room.messages.forEach(message => this.renderMessage(message));
-            this.scrollToBottom();
-        }
-    }
-
-    renderMessage(message) {
-        if (!this.elements.messagesList) return;
+        const timestamp = new Date(message.timestamp).toLocaleTimeString();
         
-        // Remove empty state if it exists
-        const emptyState = this.elements.messagesList.querySelector('.empty-messages');
-        if (emptyState) {
-            emptyState.remove();
-        }
-
-        if (message.sender === 'system') {
-            this.renderSystemMessage(message);
-            return;
-        }
-
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${message.sender === this.currentUser ? 'message--sent' : 'message--received'}`;
-        
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.className = 'message-bubble';
-        
-        const textP = document.createElement('p');
-        textP.className = 'message-text';
-        textP.textContent = message.text;
-        
-        const timestampDiv = document.createElement('div');
-        timestampDiv.className = 'message-timestamp';
-        timestampDiv.textContent = this.formatTimestamp(message.timestamp);
-        
-        bubbleDiv.appendChild(textP);
-        bubbleDiv.appendChild(timestampDiv);
-        messageDiv.appendChild(bubbleDiv);
-        
-        this.elements.messagesList.appendChild(messageDiv);
-    }
-
-    renderSystemMessage(message) {
-        if (!this.elements.messagesList) return;
-        
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'system-message';
-        messageDiv.style.textAlign = 'center';
-        messageDiv.style.padding = '16px';
-        messageDiv.style.color = 'var(--color-text-secondary)';
-        messageDiv.style.fontSize = '14px';
-        messageDiv.style.fontStyle = 'italic';
-        messageDiv.textContent = message.text;
-        
-        this.elements.messagesList.appendChild(messageDiv);
-    }
-
-    showEmptyState() {
-        if (!this.elements.messagesList) return;
-        
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'empty-messages';
-        emptyDiv.innerHTML = `
-            <div class="empty-messages-icon">💬</div>
-            <p>No messages yet. Start the conversation!</p>
+        messageEl.innerHTML = `
+            <div class="message__content">
+                <div class="message__text">${this.escapeHtml(message.content)}</div>
+                <div class="message__time">${timestamp}</div>
+            </div>
         `;
-        this.elements.messagesList.appendChild(emptyDiv);
+        
+        this.elements.messagesList.appendChild(messageEl);
+        this.scrollToBottom();
     }
 
-    formatTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    async handleMessageForm(e) {
+        e.preventDefault();
+        
+        const content = this.elements.messageInput?.value.trim();
+        if (!content || !this.currentRoom) return;
+        
+        try {
+            // Send message to Appwrite
+            await AppwriteHelper.sendMessage(this.currentRoom, this.currentUser, content);
+            
+            // Clear input
+            this.elements.messageInput.value = '';
+            
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            this.showError('Failed to send message. Please try again.');
+        }
+    }
+
+    // Real-time subscriptions
+    subscribeToRoom(roomCode) {
+        try {
+            this.roomSubscription = AppwriteHelper.subscribeToRoom(roomCode, (response) => {
+                console.log('Room update:', response);
+                
+                if (response.events.includes('databases.*.collections.*.documents.*.update')) {
+                    // Someone joined the room
+                    if (response.payload.joiner_id && this.userRole === 'creator') {
+                        this.elements.waitingForJoiner?.classList.add('hidden');
+                        this.subscribeToMessages(roomCode);
+                        this.loadMessages(roomCode);
+                        this.enterChat();
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to subscribe to room updates:', error);
+        }
+    }
+
+    subscribeToMessages(roomCode) {
+        try {
+            this.messageSubscription = AppwriteHelper.subscribeToMessages(roomCode, (response) => {
+                console.log('Message update:', response);
+                
+                if (response.events.includes('databases.*.collections.*.documents.*.create')) {
+                    // New message received
+                    this.displayMessage(response.payload);
+                }
+            });
+        } catch (error) {
+            console.error('Failed to subscribe to messages:', error);
+        }
+    }
+
+    // Utility functions
+    showScreen(screenName) {
+        Object.values(this.screens).forEach(screen => {
+            screen?.classList.remove('active');
+        });
+        this.screens[screenName]?.classList.add('active');
+    }
+
+    showError(message) {
+        // Create or update error notification
+        let errorEl = document.getElementById('errorNotification');
+        if (!errorEl) {
+            errorEl = document.createElement('div');
+            errorEl.id = 'errorNotification';
+            errorEl.className = 'error-notification';
+            document.body.appendChild(errorEl);
+        }
+        
+        errorEl.textContent = message;
+        errorEl.classList.add('show');
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            errorEl.classList.remove('show');
+        }, 5000);
+    }
+
+    updateConnectionStatus(status) {
+        const statusEl = this.elements.connectionStatus;
+        const dot = statusEl?.querySelector('.status-dot');
+        const text = statusEl?.querySelector('.status-text');
+        
+        if (status === 'connected') {
+            dot?.classList.remove('disconnected');
+            dot?.classList.add('connected');
+            text.textContent = 'Connected';
+        } else {
+            dot?.classList.remove('connected');
+            dot?.classList.add('disconnected');
+            text.textContent = 'Disconnected';
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     scrollToBottom() {
-        if (!this.elements.messagesList) return;
+        this.elements.messagesList.scrollTop = this.elements.messagesList.scrollHeight;
+    }
+
+    // Debug functionality
+    showDebugPanel() {
+        this.elements.debugPanel?.classList.remove('hidden');
+        this.elements.showDebugBtn?.classList.add('hidden');
+        this.updateDebugInfo();
+    }
+
+    hideDebugPanel() {
+        this.elements.debugPanel?.classList.add('hidden');
+        this.elements.showDebugBtn?.classList.remove('hidden');
+    }
+
+    updateDebugInfo() {
+        if (!this.elements.debugContent) return;
         
-        const container = this.elements.messagesList;
-        container.scrollTop = container.scrollHeight;
+        const debugInfo = {
+            'Active Rooms': this.chatRooms.size,
+            'Current Room': this.currentRoom || 'None',
+            'User Role': this.userRole || 'None',
+            'Session ID': this.session?.$id || 'None',
+            'Appwrite Status': this.session ? 'Connected' : 'Disconnected'
+        };
+        
+        let html = '<div class="debug-info">';
+        for (const [key, value] of Object.entries(debugInfo)) {
+            html += `<div class="debug-item"><strong>${key}:</strong> ${value}</div>`;
+        }
+        html += '</div>';
+        
+        if (this.chatRooms.size > 0) {
+            html += '<div class="debug-rooms"><h5>Room Details:</h5>';
+            for (const [code, room] of this.chatRooms) {
+                html += `<div class="debug-room">
+                    <strong>${code}:</strong> 
+                    Creator: ${room.creator?.substr(0, 8)}..., 
+                    Joiner: ${room.joiner?.substr(0, 8) || 'None'}..., 
+                    Messages: ${room.messages?.length || 0}
+                </div>`;
+            }
+            html += '</div>';
+        }
+        
+        this.elements.debugContent.innerHTML = html;
     }
 
-    startMessagePolling() {
-        if (this.messagePollingInterval) {
-            clearInterval(this.messagePollingInterval);
-        }
-
-        this.messagePollingInterval = setInterval(() => {
-            this.pollForNewMessages();
-        }, this.pollingFrequency);
-    }
-
-    pollForNewMessages() {
-        const room = this.chatRooms[this.currentRoom];
-        if (!room || !this.elements.messagesList) {
-            this.stopMessagePolling();
-            return;
-        }
-
-        // Simple check - in a real app this would sync with other users
-        // For now, just ensure messages are rendered
-        const currentMessageCount = this.elements.messagesList.children.length;
-        const actualMessageCount = room.messages.length;
-
-        if (actualMessageCount > currentMessageCount) {
-            this.loadMessages();
+    async clearAllRooms() {
+        if (confirm('Are you sure you want to clear all rooms? This will reset the application.')) {
+            this.chatRooms.clear();
+            this.currentRoom = null;
+            this.currentRoomDoc = null;
+            this.userRole = null;
+            
+            // Unsubscribe from real-time updates
+            if (this.messageSubscription) this.messageSubscription();
+            if (this.roomSubscription) this.roomSubscription();
+            
+            this.showScreen('home');
+            this.updateDebugInfo();
+            
+            console.log('🧹 All rooms cleared');
         }
     }
 
-    stopMessagePolling() {
-        if (this.messagePollingInterval) {
-            clearInterval(this.messagePollingInterval);
-            this.messagePollingInterval = null;
-        }
-    }
-
-    // Settings
-    showSettings() {
-        if (this.elements.settingsModal) {
-            this.elements.settingsModal.classList.remove('hidden');
-        }
-        this.showToast('Settings opened (demo functionality)');
-    }
-
-    hideSettings() {
-        if (this.elements.settingsModal) {
-            this.elements.settingsModal.classList.add('hidden');
-        }
+    async testConnection() {
+        const result = await testAppwriteConnection();
+        const message = result ? 'Appwrite connection successful!' : 'Appwrite connection failed!';
+        alert(message);
     }
 
     leaveChat() {
-        this.stopMessagePolling();
-        
-        // Clean up room if user was creator
-        if (this.userRole === 'creator' && this.chatRooms[this.currentRoom]) {
-            delete this.chatRooms[this.currentRoom];
+        if (confirm('Are you sure you want to leave this chat?')) {
+            // Clean up subscriptions
+            if (this.messageSubscription) this.messageSubscription();
+            if (this.roomSubscription) this.roomSubscription();
+            
+            // Clean up WebRTC
+            this.cleanupWebRTC();
+            
+            // Reset state
+            this.currentRoom = null;
+            this.currentRoomDoc = null;
+            this.userRole = null;
+            
+            this.showScreen('home');
+            console.log('👋 Left chat room');
         }
-        
-        // Reset state
-        this.currentRoom = null;
-        this.currentUser = null;
-        this.userRole = null;
-        this.isVideoCall = false;
-        this.isVoiceCall = false;
-        this.isScreenSharing = false;
-        this.isRecording = false;
-        
-        // Reset forms
-        if (this.elements.codeInput) {
-            this.elements.codeInput.value = '';
-        }
-        this.clearJoinError();
-        if (this.elements.validationSteps) {
-            this.elements.validationSteps.innerHTML = '';
-        }
-        
-        this.showScreen('home');
-        this.updateDebugInfo();
-        
-        console.log('Left chat, returned to home');
     }
 
-    startRoomCleanup() {
-        setInterval(() => {
-            const now = Date.now();
-            Object.keys(this.chatRooms).forEach(roomCode => {
-                const room = this.chatRooms[roomCode];
-                if (now - room.createdAt > this.maxRoomAge) {
-                    delete this.chatRooms[roomCode];
-                }
-            });
-            this.updateDebugInfo();
-        }, 300000); // Clean up every 5 minutes
+    // Placeholder functions for WebRTC features
+    toggleVideoCall() {
+        console.log('🎥 Video call feature - Coming soon with WebRTC implementation');
     }
 
-    showToast(message, type = 'success') {
-        // Remove existing toasts
-        const existingToast = document.querySelector('.toast');
-        if (existingToast) {
-            existingToast.remove();
-        }
+    toggleVoiceCall() {
+        console.log('📞 Voice call feature - Coming soon with WebRTC implementation');
+    }
 
-        const toast = document.createElement('div');
-        toast.className = `toast ${type === 'error' ? 'toast--error' : ''}`;
-        toast.textContent = message;
+    toggleScreenShare() {
+        console.log('🖥️ Screen share feature - Coming soon with WebRTC implementation');
+    }
+
+    toggleVoiceRecording() {
+        console.log('🎤 Voice recording feature - Coming soon');
+    }
+
+    handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            console.log('📎 File sharing feature - Coming soon', files);
+        }
+    }
+
+    setupDragAndDrop() {
+        console.log('🎯 Drag and drop setup - Coming soon');
+    }
+
+    handleKeyboardShortcuts(e) {
+        // ESC to close modals/panels
+        if (e.key === 'Escape') {
+            if (!this.elements.debugPanel?.classList.contains('hidden')) {
+                this.hideDebugPanel();
+            }
+        }
+    }
+
+    cleanupWebRTC() {
+        // Cleanup WebRTC connections
+        if (this.peerConnection) {
+            this.peerConnection.close();
+            this.peerConnection = null;
+        }
         
-        document.body.appendChild(toast);
+        if (this.localStream) {
+            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream = null;
+        }
         
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
+        if (this.screenStream) {
+            this.screenStream.getTracks().forEach(track => track.stop());
+            this.screenStream = null;
+        }
     }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        console.log('Initializing ChatConnect Pro...');
-        window.chatApp = new ChatConnectProApp();
-        console.log('ChatConnect Pro initialized successfully');
-    } catch (error) {
-        console.error('Failed to initialize ChatConnect Pro app:', error);
-    }
+    window.prMessageApp = new PRMessageApp();
 });
+
+// Export for debugging
+if (typeof window !== 'undefined') {
+    window.PRMessageApp = PRMessageApp;
+}
