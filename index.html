@@ -3,325 +3,320 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PR Message - Secure Video Chat</title>
-    <meta name="description" content="Bulletproof video chat, voice calls, screen sharing, and file transfer with Appwrite backend">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <title>PR Messenger - Private Chat Rooms</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Home Screen -->
-        <div id="homeScreen" class="screen active">
-            <div class="container">
-                <div class="home-content">
-                    <div class="hero-section">
-                        <h1 class="app-title">PR Message</h1>
-                        <p class="app-subtitle">Bulletproof video chat, voice calls, screen sharing, and file transfer with Appwrite backend</p>
+    <!-- Landing Page -->
+    <div id="landingPage" class="container-fluid vh-100 d-flex align-items-center justify-content-center">
+        <div class="row w-100">
+            <div class="col-lg-6 col-md-8 col-sm-10 mx-auto">
+                <div class="card shadow-lg border-0 landing-card">
+                    <div class="card-body p-5 text-center">
+                        <div class="mb-4">
+                            <div class="logo-container">
+                                <i class="bi bi-chat-dots-fill display-1 text-primary"></i>
+                            </div>
+                            <h1 class="mt-3 mb-2 text-white">PR Messenger</h1>
+                            <p class="text-light-blue">Create private chat rooms and connect instantly</p>
+                        </div>
+                        
+                        <div class="d-grid gap-3">
+                            <button class="btn btn-primary btn-lg gradient-btn" id="createRoomBtn">
+                                <i class="bi bi-plus-circle me-2"></i>Create Room
+                            </button>
+                            <button class="btn btn-outline-light btn-lg" id="joinRoomBtn">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>Join Room
+                            </button>
+                        </div>
+
+                        <div class="mt-4">
+                            <small class="text-light-blue">
+                                Features: Real-time chat • Voice messages • Video calls • File sharing • Screen sharing
+                            </small>
+                        </div>
+
+                        <!-- Connection Status -->
+                        <div class="mt-3">
+                            <span class="badge bg-success" id="connectionStatus">Connected</span>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Join Room Modal -->
+    <div class="modal fade" id="joinRoomModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content dark-modal">
+                <div class="modal-header border-dark">
+                    <h5 class="modal-title text-white">Join Room</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-white">Enter Room Code</label>
+                        <input type="text" class="form-control form-control-lg text-center dark-input" id="roomCodeInput" 
+                               placeholder="123456" maxlength="6" pattern="[0-9]{6}">
+                        <div class="form-text text-light-blue">Enter the 6-digit code shared by your friend</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white">Your Name</label>
+                        <input type="text" class="form-control dark-input" id="userNameInput" placeholder="Enter your name" maxlength="20">
+                    </div>
+                </div>
+                <div class="modal-footer border-dark">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary gradient-btn" id="joinRoomConfirm">Join Room</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div class="modal fade" id="createRoomModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content dark-modal">
+                <div class="modal-header border-dark">
+                    <h5 class="modal-title text-white">Room Created</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-check-circle-fill text-success display-4"></i>
+                        <h4 class="mt-3 text-white">Room Created Successfully!</h4>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white">Your Room Code</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-lg text-center fw-bold dark-input room-code-display" 
+                                   id="generatedRoomCode" readonly>
+                            <button class="btn btn-outline-light" id="copyCodeBtn">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                        <div class="form-text text-light-blue">Share this code with your friend to join</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-white">Your Name</label>
+                        <input type="text" class="form-control dark-input" id="creatorNameInput" placeholder="Enter your name" maxlength="20">
+                    </div>
+                </div>
+                <div class="modal-footer border-dark">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary gradient-btn" id="enterRoomBtn">Enter Room</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chatInterface" class="d-none">
+        <!-- Header -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark-blue">
+            <div class="container-fluid">
+                <div class="navbar-brand">
+                    <i class="bi bi-chat-dots-fill me-2"></i>PR Messenger
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-3">Room: <span id="currentRoomCode"></span></span>
+                    <span class="text-light me-3" id="participantCount">1 participant</span>
+                    <span class="badge bg-success me-3" id="onlineStatus">Online</span>
+                    <button class="btn btn-outline-light btn-sm" id="leaveRoomBtn">
+                        <i class="bi bi-box-arrow-right"></i> Leave
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Chat Area -->
+        <div class="container-fluid p-0" style="height: calc(100vh - 56px);">
+            <div class="row h-100 g-0">
+                <!-- Participants Sidebar -->
+                <div class="col-md-3 col-lg-2 bg-dark-sidebar border-end">
+                    <div class="p-3">
+                        <h6 class="mb-3 text-white">Participants</h6>
+                        <div id="participantsList">
+                            <!-- Participants will be added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="col-md-9 col-lg-10 d-flex flex-column bg-dark-main">
+                    <!-- Messages Container -->
+                    <div class="flex-grow-1 overflow-auto p-3" id="messagesContainer">
+                        <!-- Messages will be added here -->
+                    </div>
+
+                    <!-- Typing Indicator -->
+                    <div id="typingIndicator" class="px-3 d-none">
+                        <div class="typing-indicator">
+                            <span id="typingUser">Someone</span> is typing
+                            <div class="typing-dots">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="border-top border-dark p-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col">
+                                <div class="input-group">
+                                    <input type="text" class="form-control dark-input" id="messageInput" 
+                                           placeholder="Type your message..." maxlength="1000">
+                                    <button class="btn btn-primary gradient-btn" id="sendMessageBtn">
+                                        <i class="bi bi-send"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-light media-btn" id="voiceRecordBtn" title="Voice Message">
+                                        <i class="bi bi-mic"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light media-btn" id="fileUploadBtn" title="Share File">
+                                        <i class="bi bi-paperclip"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light media-btn" id="videoCallBtn" title="Video Call">
+                                        <i class="bi bi-camera-video"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light media-btn" id="voiceCallBtn" title="Voice Call">
+                                        <i class="bi bi-telephone"></i>
+                                    </button>
+                                    <button class="btn btn-outline-light media-btn" id="screenShareBtn" title="Screen Share">
+                                        <i class="bi bi-display"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Recording Modal -->
+    <div class="modal fade" id="voiceRecordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content dark-modal">
+                <div class="modal-header border-dark">
+                    <h5 class="modal-title text-white">Voice Message</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div id="recordingState" class="mb-3">
+                        <div class="recording-animation">
+                            <i class="bi bi-mic-fill text-danger display-1 pulse"></i>
+                            <div class="sound-waves">
+                                <div class="wave"></div>
+                                <div class="wave"></div>
+                                <div class="wave"></div>
+                            </div>
+                        </div>
+                        <h5 class="mt-3 text-white">Recording...</h5>
+                        <p class="text-light-blue">Duration: <span id="recordingDuration" class="text-primary">00:00</span></p>
+                    </div>
+                    <div id="recordedState" class="mb-3 d-none">
+                        <i class="bi bi-check-circle-fill text-success display-1"></i>
+                        <h5 class="mt-3 text-white">Recording Complete</h5>
+                        <audio controls class="mt-2" id="recordedAudio"></audio>
+                    </div>
+                </div>
+                <div class="modal-footer border-dark">
+                    <button type="button" class="btn btn-secondary" id="stopRecordingBtn">Stop</button>
+                    <button type="button" class="btn btn-danger d-none" id="discardRecordingBtn">Discard</button>
+                    <button type="button" class="btn btn-primary gradient-btn d-none" id="sendVoiceBtn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Interface -->
+    <div id="callInterface" class="position-fixed top-0 start-0 w-100 h-100 bg-call d-none" style="z-index: 9999;">
+        <div class="container-fluid h-100 d-flex flex-column">
+            <div class="row flex-grow-1">
+                <div class="col-12 position-relative">
+                    <video id="remoteVideo" class="w-100 h-100 object-fit-cover" autoplay playsinline></video>
+                    <video id="localVideo" class="position-absolute top-0 end-0 m-3 local-video-overlay" 
+                           style="width: 200px; height: 150px; border-radius: 8px;" autoplay playsinline muted></video>
                     
-                    <div class="action-buttons">
-                        <button id="createInviteBtn" class="btn btn--primary btn--lg btn--full-width">
-                            <span>🔐</span>
-                            Create Secure Room
-                        </button>
-                        <button id="joinWithCodeBtn" class="btn btn--outline btn--lg btn--full-width">
-                            <span>🚪</span>
-                            Join with Code
-                        </button>
+                    <!-- Call Status -->
+                    <div class="position-absolute top-0 start-0 m-3 text-white call-status-overlay">
+                        <h5 id="callStatus">Connecting...</h5>
+                        <small id="callDuration">00:00</small>
+                    </div>
+
+                    <!-- Call Quality Indicator -->
+                    <div class="position-absolute top-0 start-50 translate-middle-x m-3">
+                        <div class="call-quality">
+                            <i class="bi bi-signal text-success"></i>
+                            <span class="text-white">HD</span>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Debug Panel Toggle -->
-            <div class="debug-toggle">
-                <button id="showDebugBtn" class="btn btn--sm btn--secondary">
-                    Show Debug
-                </button>
-            </div>
-        </div>
-
-        <!-- Create Invite Screen -->
-        <div id="createInviteScreen" class="screen">
-            <div class="container">
-                <div class="invite-content">
-                    <div class="back-header">
-                        <button id="backFromCreateBtn" class="btn btn--outline">← Back</button>
-                        <h2>Create Secure Room</h2>
-                    </div>
-                    
-                    <div class="card invite-card">
-                        <div class="card__body">
-                            <!-- Generating State -->
-                            <div id="codeGenerating" class="loading-state">
-                                <div class="spinner"></div>
-                                <h3>Generating bulletproof code...</h3>
-                                <p class="code-info">Creating secure connection...</p>
-                            </div>
-                            
-                            <!-- Generated State -->
-                            <div id="codeGenerated" class="code-display hidden">
-                                <h3>Share this code with someone to start chatting</h3>
-                                
-                                <div class="code-container">
-                                    <div id="inviteCode" class="invite-code">XXXXXX</div>
-                                    <button id="copyCodeBtn" class="btn btn--primary">
-                                        📋 Copy
-                                    </button>
-                                </div>
-                                
-                                <p class="code-info">This code expires when the room is closed</p>
-                                
-                                <div id="storageStatus" class="status-indicator">
-                                    <span>🟡 Storing securely...</span>
-                                </div>
-                                
-                                <div id="waitingForJoiner" class="waiting-state hidden">
-                                    <div class="pulse-dot"></div>
-                                    <span>Waiting for someone to join...</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Join Screen -->
-        <div id="joinScreen" class="screen">
-            <div class="container">
-                <div class="join-content">
-                    <div class="back-header">
-                        <button id="backFromJoinBtn" class="btn btn--outline">← Back</button>
-                        <h2>Join Room</h2>
-                    </div>
-                    
-                    <div class="card">
-                        <div class="card__body">
-                            <form id="joinForm">
-                                <div class="form-group">
-                                    <label for="codeInput" class="form-label">Enter Room Code</label>
-                                    <input 
-                                        type="text" 
-                                        id="codeInput" 
-                                        class="form-input" 
-                                        placeholder="XXXXXX"
-                                        maxlength="6"
-                                        autocomplete="off"
-                                        required
-                                    >
-                                </div>
-                                
-                                <div class="validation-feedback">
-                                    <div class="validation-item">
-                                        <span id="lengthCheck" class="validation-icon">⚪</span>
-                                        <span>6 characters</span>
-                                    </div>
-                                    <div class="validation-item">
-                                        <span id="formatCheck" class="validation-icon">⚪</span>
-                                        <span>Letters and numbers only</span>
-                                    </div>
-                                    <div class="validation-item">
-                                        <span id="existsCheck" class="validation-icon">⚪</span>
-                                        <span>Room exists</span>
-                                    </div>
-                                </div>
-                                
-                                <div id="joinError" class="error-message hidden">
-                                    Error message will appear here
-                                </div>
-                                
-                                <button type="submit" id="joinBtn" class="btn btn--primary btn--lg btn--full-width">
-                                    <span id="joinSpinner" class="btn-spinner hidden"></span>
-                                    <span id="joinBtnText">Join Room</span>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Chat Screen -->
-        <div id="chatScreen" class="screen">
-            <div class="chat-layout">
-                <!-- Chat Header -->
-                <div class="chat-header">
-                    <div class="chat-info">
-                        <h3 id="chatTitle">PR Message - Room XXXXXX</h3>
-                        <div id="connectionStatus" class="connection-status">
-                            <div class="status-dot"></div>
-                            <span class="status-text">Connecting...</span>
-                        </div>
-                    </div>
-                    
-                    <div class="media-controls">
-                        <button id="videoCallBtn" class="media-btn" title="Video Call">
-                            📹
-                        </button>
-                        <button id="voiceCallBtn" class="media-btn" title="Voice Call">
-                            📞
-                        </button>
-                        <button id="screenShareBtn" class="media-btn" title="Screen Share">
-                            🖥️
-                        </button>
-                        <button id="voiceMessageBtn" class="media-btn" title="Voice Message">
-                            🎤
-                        </button>
-                        <button id="fileShareBtn" class="media-btn" title="Share File">
-                            📎
-                        </button>
-                        <button id="leaveChatBtn" class="btn btn--danger btn--sm">
-                            Leave
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Video Container -->
-                <div id="videoContainer" class="video-container hidden">
-                    <video id="remoteVideo" class="remote-video" autoplay playsinline></video>
-                    <video id="localVideo" class="local-video" autoplay playsinline muted></video>
-                    
-                    <div class="video-controls">
-                        <button id="toggleCameraBtn" class="video-control-btn" title="Toggle Camera">
-                            📹
-                        </button>
-                        <button id="toggleMicBtn" class="video-control-btn" title="Toggle Microphone">
-                            🎤
-                        </button>
-                        <button id="endCallBtn" class="video-control-btn end-call" title="End Call">
-                            📞
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Screen Share Container -->
-                <div id="screenShareContainer" class="screen-share-container hidden">
-                    <video id="screenVideo" class="screen-video" autoplay playsinline></video>
-                    <button id="stopScreenShareBtn" class="btn btn--danger">
-                        Stop Sharing
+            <!-- Call Controls -->
+            <div class="text-center py-4 call-controls">
+                <div class="btn-group call-btn-group" role="group">
+                    <button class="btn btn-outline-light btn-lg call-control-btn" id="muteBtn">
+                        <i class="bi bi-mic"></i>
+                    </button>
+                    <button class="btn btn-outline-light btn-lg call-control-btn" id="cameraBtn">
+                        <i class="bi bi-camera-video"></i>
+                    </button>
+                    <button class="btn btn-danger btn-lg call-control-btn end-call-btn" id="endCallBtn">
+                        <i class="bi bi-telephone-x"></i>
+                    </button>
+                    <button class="btn btn-outline-light btn-lg call-control-btn" id="shareScreenBtn">
+                        <i class="bi bi-display"></i>
+                    </button>
+                    <button class="btn btn-outline-light btn-lg call-control-btn" id="settingsBtn">
+                        <i class="bi bi-gear"></i>
                     </button>
                 </div>
-                
-                <!-- Chat Body -->
-                <div class="chat-body">
-                    <div id="messagesList" class="messages-list">
-                        <!-- Messages will be dynamically inserted here -->
-                    </div>
-                </div>
-                
-                <!-- Voice Recorder -->
-                <div id="voiceRecorder" class="voice-recorder hidden">
-                    <div class="recording-indicator">
-                        <div class="recording-dot"></div>
-                        <span>Recording...</span>
-                        <span id="recordingTime">00:00</span>
-                    </div>
-                    
-                    <div class="recording-controls">
-                        <button id="stopRecordingBtn" class="btn btn--sm btn--primary">
-                            Send
-                        </button>
-                        <button id="cancelRecordingBtn" class="btn btn--sm btn--secondary">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- File Transfer Progress -->
-                <div id="fileTransferProgress" class="file-progress hidden">
-                    <div class="progress-header">
-                        <span id="transferFileName" class="progress-title">filename.pdf</span>
-                        <button id="cancelTransferBtn" class="btn btn--sm btn--secondary">Cancel</button>
-                    </div>
-                    <div class="progress-bar">
-                        <div id="transferProgressBar" class="progress-fill" style="width: 0%"></div>
-                    </div>
-                    <div class="progress-info">
-                        <span>0% complete</span>
-                        <span id="transferSpeed">0 KB/s</span>
-                    </div>
-                </div>
-                
-                <!-- Chat Input -->
-                <div class="chat-input">
-                    <form id="messageForm" class="message-form">
-                        <div class="input-container">
-                            <button type="button" class="input-btn" title="Emoji">
-                                😊
-                            </button>
-                            
-                            <input 
-                                type="text" 
-                                id="messageInput" 
-                                class="message-input" 
-                                placeholder="Type a message..."
-                                autocomplete="off"
-                                required
-                            >
-                            
-                            <button type="submit" id="sendBtn" class="send-btn" title="Send Message">
-                                ➤
-                            </button>
-                        </div>
-                    </form>
-                </div>
             </div>
         </div>
     </div>
-    
-    <!-- File Drop Zone -->
-    <div id="fileDropZone" class="file-drop-zone hidden">
-        <div class="drop-content">
-            <div class="drop-icon">📁</div>
-            <div class="drop-text">Drop files here to share</div>
-        </div>
-    </div>
-    
-    <!-- Hidden File Input -->
-    <input type="file" id="fileInput" style="display: none;" multiple>
-    
-    <!-- Debug Panel -->
-    <div id="debugPanel" class="debug-panel hidden">
-        <div class="debug-header">
-            <h4>🔧 Debug Panel</h4>
-            <button id="toggleDebugBtn" class="btn btn--sm btn--secondary">Hide</button>
-        </div>
-        
-        <div id="debugContent" class="debug-info">
-            <div class="debug-item">
-                <strong>Status:</strong> <span>Loading...</span>
+
+    <!-- File Upload Input (Hidden) -->
+    <input type="file" id="fileInput" class="d-none" multiple accept="*/*">
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast dark-toast" role="alert">
+            <div class="toast-header bg-dark border-dark">
+                <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                <strong class="me-auto text-white">PR Messenger</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body text-white bg-dark" id="toastMessage">
+                <!-- Toast message will be inserted here -->
             </div>
         </div>
-        
-        <div class="debug-actions">
-            <button id="clearRoomsBtn" class="btn btn--sm btn--danger">Clear Rooms</button>
-            <button id="testConnectionBtn" class="btn btn--sm btn--info">Test Connection</button>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay d-none">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h5 class="text-white mt-3">Connecting to Appwrite...</h5>
+            <p class="text-light-blue">Please wait while we establish connection</p>
         </div>
     </div>
-    
-    <!-- Scripts -->
+
+    <!-- Appwrite SDK -->
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
-    <script src="appwrite-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="config.js"></script>
+    <script src="appwrite-service.js"></script>
     <script src="app.js"></script>
-    
-    <script>
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            window.prMessageApp = new PRMessageApp();
-        });
-        
-        // Service Worker Registration (optional)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then((registration) => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch((registrationError) => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
-        }
-    </script>
 </body>
 </html>
