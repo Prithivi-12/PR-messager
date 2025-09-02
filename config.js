@@ -3,8 +3,8 @@
 
 const CONFIG = {
     // Appwrite Configuration
-    APPWRITE_ENDPOINT: 'https://cloud.appwrite.io/v1', // Replace with your Appwrite endpoint
-    APPWRITE_PROJECT_ID: 'your-project-id', // Replace with your Appwrite project ID
+    APPWRITE_ENDPOINT: 'https://nyc.cloud.appwrite.io/v1', // Replace with your Appwrite endpoint
+    APPWRITE_PROJECT_ID: '68b68b38002b5a1c7846', // Replace with your Appwrite project ID
     
     // Database Configuration
     DATABASE_ID: 'pr-messenger-db',
